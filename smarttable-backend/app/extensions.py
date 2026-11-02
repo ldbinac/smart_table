@@ -96,34 +96,40 @@ def init_extensions(app):
     # busy_timeout=5000：遇锁等 5 秒再抛错，吸收瞬时锁冲突
     # foreign_keys=ON：SQLite 默认不强制外键
     # synchronous=NORMAL：WAL 模式下安全性能折中
+    #
+    # ⚠️ 关键：PRAGMA 是 SQLite 专属指令，PG/MySQL 执行会触发 SQL 错误。
+    # psycopg v3 (PG 驱动) 默认 autocommit=false，SQL 报错后隐式事务进入
+    # InFailedSqlTransaction 状态，listener 里的 except Exception 虽然吞掉了错误，
+    # 但没有 ROLLBACK，导致连接被污染、后续所有查询都报错。
+    # 因此只在 SQLite 方言下注册 connect listener 和执行手动 PRAGMA。
     with app.app_context():
         engine = db.engine
-        from sqlalchemy import event
-        from sqlalchemy.engine import Engine
+        dialect_name = engine.dialect.name
 
-        @event.listens_for(Engine, "connect")
-        def _set_sqlite_pragma(dbapi_connection, connection_record):
-            """每个新 SQLite 连接都设置 PRAGMA"""
-            try:
-                cursor = dbapi_connection.cursor()
-                # WAL：Write-Ahead Logging，允许读写并发
-                cursor.execute("PRAGMA journal_mode=WAL")
-                # 遇锁等 5 秒再抛错（默认 0 = 立刻失败）
-                cursor.execute("PRAGMA busy_timeout=5000")
-                # # 强制外键（SQLite 默认 OFF）
-                # cursor.execute("PRAGMA foreign_keys=ON")
-                # WAL 模式下的同步级别（NORMAL：OS 崩溃安全，断电可能丢最后几个事务）
-                cursor.execute("PRAGMA synchronous=NORMAL")
-                # 临时内存存储模式（WAL + 内存 temp_store）
-                cursor.execute("PRAGMA temp_store=MEMORY")
-                cursor.close()
-            except Exception as _e:
-                # 非 SQLite 引擎（PostgreSQL 等）不执行这些 PRAGMA
-                pass
+        if dialect_name == 'sqlite':
+            from sqlalchemy import event
+            from sqlalchemy.engine import Engine
 
-        # 如果是 SQLite 数据库，立即在当前 engine 上执行一次 PRAGMA
-        # 上面的 listener 只对后续新建连接生效，已存在的连接需要手动执行
-        if 'sqlite' in str(engine.url).lower():
+            @event.listens_for(Engine, "connect")
+            def _set_sqlite_pragma(dbapi_connection, connection_record):
+                """每个新 SQLite 连接都设置 PRAGMA"""
+                try:
+                    cursor = dbapi_connection.cursor()
+                    # WAL：Write-Ahead Logging，允许读写并发
+                    cursor.execute("PRAGMA journal_mode=WAL")
+                    # 遇锁等 5 秒再抛错（默认 0 = 立刻失败）
+                    cursor.execute("PRAGMA busy_timeout=5000")
+                    # # 强制外键（SQLite 默认 OFF）
+                    # cursor.execute("PRAGMA foreign_keys=ON")
+                    # WAL 模式下的同步级别（NORMAL：OS 崩溃安全，断电可能丢最后几个事务）
+                    cursor.execute("PRAGMA synchronous=NORMAL")
+                    # 临时内存存储模式（WAL + 内存 temp_store）
+                    cursor.execute("PRAGMA temp_store=MEMORY")
+                    cursor.close()
+                except Exception as _e:
+                    pass
+
+            # listener 只对后续新建连接生效，已存在的连接手动执行一次
             try:
                 with engine.connect() as conn:
                     conn.execute(db.text("PRAGMA journal_mode=WAL"))
@@ -134,6 +140,8 @@ def init_extensions(app):
                 app.logger.info('[Extensions] ✓ SQLite WAL mode + busy_timeout=5000 configured')
             except Exception as e:
                 app.logger.warning(f'[Extensions] SQLite PRAGMA setup failed: {e}')
+        else:
+            app.logger.info(f'[Extensions] 非 SQLite 方言 ({dialect_name})，跳过 PRAGMA 配置')
     
     # 初始化迁移工具
     migrate.init_app(app, db)

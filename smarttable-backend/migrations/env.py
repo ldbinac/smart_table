@@ -85,11 +85,35 @@ def run_migrations_online() -> None:
         except Exception:
             pass
 
+        # ===== SQLite 专属修复：根治 Alembic 版本表不持久化 =====
+        # SQLAlchemy 2.0 严格 autobegin：任何 connection.execute() 都会自动开启隐式事务。
+        # 上面的 PRAGMA 之后 connection 已处于 autobegin 隐式事务中。
+        # Alembic MigrationContext.__init__ 会检查 _get_connection_in_transaction(connection)：
+        #   - True → self._in_external_transaction = True
+        #   - begin_transaction() 开头直接 return nullcontext()！
+        # 即便 transactional_ddl=True，在 _in_external_transaction=True 时也被短路。
+        # 结果：Alembic 内部对 alembic_version 的 DELETE + INSERT 裸奔，
+        # 连接关闭时自动 rollback，版本表写入全部丢失。
+        #
+        # 仅 SQLite 需要：PG/MySQL 原生 supports_ddl_transactions=True 不受 autobegin 影响。
+        # PG 上如果连接处于 InFailedSqlTransaction 状态，盲 rollback 会把连接
+        # 标记为 failed 并污染连接池（psycopg DBAPI 协议限制），因此必须加方言守卫。
+        if connection.dialect.name == 'sqlite' and connection.in_transaction():
+            connection.rollback()
+
         context.configure(
             connection=connection,
             target_metadata=target_metadata,
             compare_type=True,  # 比较列类型变化
             compare_server_default=True,  # 比较默认值变化
+            # 强制开启事务 DDL，让 context.begin_transaction() 返回真事务而非 nullcontext()。
+            # SQLite 默认 dialect.supports_ddl_transactions=False 导致 Alembic
+            # 内部的 DELETE + INSERT alembic_version 在 connection.close() 时
+            # 全部被 rollback（隐式 autobegin 事务无显式 commit）。
+            # SQLite 3.7.3+ 已完整支持事务 DDL（RENAME/CREATE/INSERT/DROP），
+            # 我们的 batch_alter_table 正是这些操作，因此安全开启。
+            # PG/MySQL 本来就 supports_ddl_transactions=True，此参数无副作用。
+            transactional_ddl=True,
         )
 
         with context.begin_transaction():

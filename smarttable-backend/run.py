@@ -209,6 +209,35 @@ def repair_schema_columns():
         print(f'[Repair] 共补齐 {repaired} 个缺失列')
 
 
+def _get_migration_heads(migrations_dir) -> set:
+    """
+    获取所有迁移目录的 heads 版本号集合。
+
+    与 Alembic 内部解析保持一致，聚合 versions/、versions_fa/、
+    versions_am/、versions_ap/ 多层目录。
+    """
+    import os as _os
+    from alembic.config import Config as _AlembicConfig
+    from alembic.script import ScriptDirectory as _ScriptDirectory
+
+    _LAYER_DIRS = ('versions', 'versions_fa', 'versions_am', 'versions_ap')
+
+    config = _AlembicConfig()
+    config.set_main_option('script_location', str(migrations_dir))
+
+    locations = [
+        _os.path.join(str(migrations_dir), layer)
+        for layer in _LAYER_DIRS
+        if _os.path.isdir(_os.path.join(str(migrations_dir), layer))
+    ]
+    if locations:
+        config.set_main_option('version_path_separator', 'os')
+        config.set_main_option('version_locations', _os.pathsep.join(locations))
+
+    script = _ScriptDirectory.from_config(config)
+    return set(script.get_heads())
+
+
 def _needs_upgrade(migrations_dir, db_engine) -> bool:
     """
     判断数据库是否需要执行 Alembic upgrade。
@@ -512,7 +541,7 @@ def run_migrations():
                 # db.create_all() 创建，SQLite 方言下重放链会在对不存在的表
                 # 反射列时抛 NoSuchTableError。按当前模型建全表后标记到最新
                 # 版本，与迁移最终态等价且 schema 更完整、可重复执行。
-                # 无数据可丢，跳过备份。
+                # env.py 已 transactional_ddl=True，stamp heads 能正常 commit。
                 print('[Migrate] 检测到全新数据库，按当前模型建表并标记最新版本...')
                 db.create_all()
                 stamp(directory=str(migrations_dir), revision='heads')
@@ -578,6 +607,8 @@ def run_migrations():
             # 多层迁移目录会产生多个分支 head（各产品版本层各一个），
             # 必须用 heads 而非 head，否则多 head 场景下 Alembic 会报错
             upgrade(directory=str(migrations_dir), revision='heads')
+            # env.py transactional_ddl=True 已根治 SQLite 事务问题，
+            # Alembic 内部会在 upgrade 结束时正确 commit alembic_version 更新。
             repair_schema_columns()
             print('[Migrate] ✅ 数据库迁移完成')
 
