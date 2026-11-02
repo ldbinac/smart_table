@@ -426,8 +426,6 @@ export class TemplateService {
         text: "single_line_text",
         member: "collaborator",
         progress: "number",
-        created_time: "date_time",
-        updated_time: "date_time",
       };
 
       const backendType =
