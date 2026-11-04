@@ -159,14 +159,16 @@ COPY docker/server_runner.py /app/docker/server_runner.py
 COPY docker/entrypoint.sh /entrypoint.sh
 
 # 源码保护与敏感文件清理（须在全部 .py 就位后执行）：
-# 1) 全部 Python 源码编译为字节码（.pyc 与源文件同目录平铺）后删除 .py 源文件，
-#    覆盖业务包 app/、入口与工具脚本、docker/server_runner.py 及 alembic migrations/
-#    （alembic 1.13 的 load_python_file 原生支持 .pyc 回退加载，迁移可正常运行）；
+# 1) 业务源码 app/、入口脚本 docker/server_runner.py、run.py 等编译为字节码后删除 .py。
+#    **注意：migrations/ 目录保留 .py 源文件** —— Alembic 的 ScriptDirectory.get_heads()
+#    只识别 .py 后缀做文件扫描（walk_revisions / get_heads），.pyc 回退仅适用于迁移执行
+#    阶段（load_python_file）。删掉 migrations/*.py 会导致 _needs_upgrade() 永远返回 True，
+#    每次启动都触发一次无意义的完整迁移运行。
 #    仅保留运行时插件 uploads/plugins/*/main.py（产品功能，非后端源码）
 # 2) 兜底删除 .db/.pem 等敏感文件（即使 .dockerignore 规则遗漏也不进入最终镜像）
 RUN python -m compileall -b app/ migrations/ docker/server_runner.py \
         run.py init_db.py create_tables.py && \
-    find app/ migrations/ docker/ -type f -name '*.py' -delete && \
+    find app/ docker/ -type f -name '*.py' -delete && \
     rm -f run.py init_db.py create_tables.py && \
     find app/ migrations/ docker/ -type d -name '__pycache__' -prune -exec rm -rf {} + && \
     find /app -type f \( -name '*.db' -o -name '*.sqlite' -o -name '*.sqlite3' \
