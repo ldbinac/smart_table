@@ -4,6 +4,175 @@
 
 ***
 
+# SmartTable v1.6.10 Release Notes
+
+**发布日期 / Release Date**: 2026-11-04
+
+**版本号 / Version**: v1.6.10
+
+**标签 / Tags**: `release`, `v1.6.10`, `latest`, `stable`, `comments`, `sso`, `qr-code`, `auto-update`, `username-login`, `security`, `performance`, `migration`
+
+***
+
+## 中文版本 / Chinese Version
+
+### 🎉 SmartTable v1.6.10 更新说明
+
+本次更新聚焦 **记录评论与 @提及**、**表单分享二维码**、**版本检测与自动更新**、**用户名登录与管理**，并包含大量**性能优化**、**安全增强**与**部署迁移稳定性**改进。新增记录评论与 @提及、表单分享二维码、版本检测与自动更新提示、用户名登录与管理；优化列表加载与计算性能、引入搜索下推分页与异步预取、修复大表卡死；集中加固了脚本沙箱、SSRF、SQL 注入、XSS、CORS、密钥与登录限流等安全项；并修复了若干表格渲染、迁移与 Docker 部署问题。
+
+### ✨ 新增及功能优化
+
+#### 💬 记录评论与 @提及 ⭐
+
+- ⭐ **记录评论**：新增记录评论功能，可在记录下方进行评论交流
+- ⭐ **@提及成员**：评论支持 @提及成员，方便定向通知相关人员
+
+
+#### 📱 表单分享二维码
+
+- **表单分享二维码**：新增表单分享二维码功能，扫码即可访问分享表单；并优化了二维码按钮与图片样式
+
+#### 🔄 版本检测与自动更新
+
+- **版本检测与自动更新提示**：新增版本检测与自动更新提示功能，方便及时获知新版本
+
+#### 👤 用户名登录与管理
+
+- **用户名登录**：支持使用用户名登录，同时支持邮箱和用户名登录
+- **用户管理**：新增用户管理功能，便于账号维护
+
+
+### ⚡ 性能优化
+
+- **列表加载与计算性能**：优化列表加载与计算性能，并修复系统字段排序问题
+- **搜索下推分页**：后端搜索下推分页，前端相关清理，降低大列表查询压力
+- **异步预取**： 异步 prefetch，提升交互响应速度
+- **大表请求卡死修复**：修复大表（1400+ 条）后续请求卡死的问题
+
+### 🔒 安全增强
+
+- **生产环境禁用 DEBUG**：生产环境下禁止开启 DEBUG 模式，避免敏感信息泄露
+- **CORS 头部字段修复**：修复 CORS 允许的头部字段配置
+- **SQL LIKE 注入防护**：防止 SQL LIKE 查询的通配符注入漏洞
+- **登录限流双维度**：优化登录限流器，采用双维度标识策略，防暴力破解更精准
+- **默认管理员密码提示**：新增默认管理员密码未修改的安全提示，降低弱口令风险
+- **环境变量安全默认**：修复未设置环境变量时默认使用开发环境的问题，并增强开发环境密钥安全警告
+- **脚本沙箱深度防御**：为脚本运行器添加沙箱深度防御审计守卫（防沙箱逃逸），并增加环境变量白名单与安全异常格式化
+- **SSRF 防护**：抽离 SSRF 防护为独立工具，应用到 Webhook 与插件代理
+- **通知日志 HTML 安全渲染**：为通知日志内容添加 HTML 安全渲染处理，防止 XSS
+- **依赖安全升级**：升级 requests 至 2.32.4、升级组件版本修复依赖安全漏洞
+- **上传/下载安全策略**：禁止上传 HTML 等网页文件、实现文件下载安全策略，防止 XSS 攻击
+- **统一密钥安全检查**：新增统一密钥安全检查工具
+- **移除测试模式验证码**：移除测试模式的验证码，避免被绕过
+
+
+### 🐳 部署与迁移优化
+
+- **评论迁移 down_revision 修正**：修正评论迁移脚本的 down_revision，以接上评论迁移
+- **用户名字段迁移兼容性**：完善添加用户名字段迁移脚本的兼容性
+- **取消 SQLite 外键强制配置**：取消 SQLite 外键强制配置，避免级联删除丢失数据问题
+- **按需升级前备份**：按需触发升级前备份，升级前备份和行数快照支持 SQLite和PostgreSQL 方言
+- **Dockerfile migrations 误删修复**：修复 Dockerfile 编译后误删 migrations 目录 .py 文件的问题
+- **增加泛微E10单点集成**：增加泛微E10单点集成（感谢[@ssdfcc的PR](https://github.com/ldbinac/smart_table/pull/73))
+
+### 🐛 Bug 修复 (Bug Fixes)
+
+- 修复 flask-socketio 5.x 实时支持误判问题
+- 修复  onBatchLoaded 回调中 renderWithRecreateCells 漏掉 tableInstance 前缀的问题
+- 修复前端 build 的 5 个 TypeScript 编译错误（含 VTableView forEach 未使用参数）
+- 修复 SQLite 并发锁导致的偶发 500 错误
+- 修复表格末尾新增行不显示、需刷新才出现的问题
+- 修复新增行位置错误、大表末尾缺失新增按钮、统计不匹配的问题
+- 修复新增行被 addButton 虚拟行 uniqueMarker 残留污染、显示 `__add_button_` 标记的问题
+- 修复 PostgreSQL varchar 列宽溢出并重新对齐 operation_history 序列（感谢[@jonathanwong0086的PR](https://github.com/ldbinac/smart_table/pull/75)）
+- 修复登录后白名单页面跳转逻辑
+- 修复登出逻辑返回值判断错误
+- 清理错误的配置；修复 SMTP 配置验证的返回值逻辑
+- 修复 SQLite batch_alter_table 外键级联删除业务表数据的问题
+- 修复 PostgreSQL 连接启动失败，并根治 SQLite Alembic 事务问题
+- 修复模板服务冗余时间类型映射导致模板创建时间被改为时间类型的问题
+- 修复 Docker 环境下 SQLite 与 eventlet 的兼容性问题
+
+---
+
+## English Version
+
+### 🎉 SmartTable v1.6.10 Release Notes
+
+This release focuses on **record comments & @mentions**, **form-share QR code**, **version check & auto-update**, and **username login & management**, and includes substantial **performance optimizations**, **security hardening**, and **deployment/migration stability** improvements. It adds record comments with @mentions, form-share QR codes, version detection with auto-update prompts, and username login with management; optimizes list loading and calculation performance, introduces search pushdown pagination and async prefetch, and fixes large-table freezes; hardens script sandbox, SSRF, SQL injection, XSS, CORS, key handling, and login rate limiting; and fixes several table-rendering, migration, and Docker deployment issues.
+
+### ✨ New Features & Improvements
+
+#### 💬 Record Comments & @Mentions ⭐
+
+- ⭐ **Record Comments**: Added record comment functionality, allowing discussions under records
+- ⭐ **@Mentions**: Comments support @mentioning members to notify the right people directly
+
+#### 📱 Form Share QR Code
+
+- **Form Share QR Code**: Added a form-share QR code feature; scanning opens the shared form. QR button and image styling were also optimized
+
+#### 🔄 Version Check & Auto-Update
+
+- **Version Check & Auto-Update Prompt**: Added version detection and auto-update prompts to help users learn about new releases in time
+
+#### 👤 Username Login & Management
+
+- **Username Login**: Login with a username is now supported, in addition to email
+- **User Management**: Added user management for easier account maintenance
+
+### ⚡ Performance Optimizations
+
+- **List Loading & Calculation**: Optimized list loading and calculation performance, and fixed system-field sorting
+- **Search Pushdown Pagination**: Backend search pushdown pagination with related frontend cleanup, reducing load on large-list queries
+- **Async Prefetch**:  async prefetch improves interaction responsiveness
+- **Large-Table Freeze Fix**: Fixed subsequent requests freezing on large tables (1400+ rows)
+
+### 🔒 Security Hardening
+
+- **Disable DEBUG in Production**: DEBUG mode is now forbidden in production to avoid leaking sensitive information
+- **CORS Header Fix**: Fixed the allowed-headers configuration for CORS
+- **SQL LIKE Injection Guard**: Prevented wildcard-injection vulnerabilities in SQL LIKE queries
+- **Dual-Dimension Login Rate Limiter**: Optimized the login rate limiter with a dual-dimension identification strategy for more precise brute-force protection
+- **Default Admin Password Prompt**: Added a security prompt when the default admin password is unchanged, reducing weak-password risk
+- **Secure Environment Defaults**: Fixed the issue where the development environment was used by default when env vars were unset, and enhanced dev key-security warnings
+- **Script Sandbox Hardening**: Added a deep-defense audit guard to the script runner (preventing sandbox escape), plus an environment-variable whitelist and safe exception formatting
+- **SSRF Protection**: Extracted SSRF protection into a standalone utility, applied to Webhook and plugin proxy
+- **Safe HTML Rendering for Notification Logs**: Added safe HTML rendering for notification log content to prevent XSS
+- **Dependency Security Upgrades**: Upgraded requests to 2.32.4 and bumped component versions to fix dependency vulnerabilities
+- **Upload/Download Security**: Forbid uploading HTML/web files and implement a file-download security policy to prevent XSS
+- **Unified Key Security Check**: Added a unified key security check utility
+- **Remove Test-Mode Captcha**: Removed the test-mode captcha to prevent it from being bypassed
+
+### 🐛 Bug Fixes
+
+- Fixed the misjudgment of flask-socketio 5.x realtime support
+- Fixed the missing `tableInstance` prefix in `renderWithRecreateCells` within the  `onBatchLoaded` callback
+- Fixed 5 TypeScript compile errors in the frontend build (including unused forEach params in VTableView)
+- Fixed occasional 500 errors caused by SQLite concurrency locks
+- Fixed new rows at the table end not showing until a refresh
+- Fixed new-row position errors, missing add button at the end of large tables, and statistic mismatches
+- Fixed new rows polluted by leftover `uniqueMarker` from the addButton virtual row, showing the `__add_button_` marker
+- Fixed PostgreSQL varchar column overflow and realigned the `operation_history` sequence (thanks to [@jonathanwong0086's PR](https://github.com/ldbinac/smart_table/pull/75))
+- Fixed whitelist page redirect logic after login
+- Fixed incorrect return-value judgment in logout logic
+- Cleaned up erroneous config; fixed the SMTP config validation return-value logic
+- Fixed SQLite `batch_alter_table` foreign-key cascade deleting business-table data
+- Fixed PostgreSQL connection startup failure and rooted out the SQLite Alembic transaction issue
+- Fixed the template service's redundant time-type mapping that changed a template's created-time to a time type
+- Fixed SQLite + eventlet compatibility under Docker
+
+### 🐳 Deployment & Migration Optimization
+
+- **Comment Migration down_revision Fix**: Corrected the `down_revision` of the comment migration script to chain onto the comment migration
+- **Username Field Migration Compatibility**: Improved compatibility of the migration script that adds the username field
+- **Cancel Forced SQLite FK**: Cancelled the forced SQLite foreign-key configuration to avoid data loss from unintended cascade deletes
+- **On-Demand Pre-Upgrade Backup**: Pre-upgrade backup and row-count snapshot now support both SQLite and PostgreSQL dialects, triggered on demand to avoid copying the DB file on every startup
+- **Dockerfile Migrations Deletion Fix**: Fixed the Dockerfile deleting `.py` files in the migrations directory after build
+- **Weaver E10 SSO Integration**: Added Weaver E10 single sign-on integration (thanks to [@ssdfcc's PR](https://github.com/ldbinac/smart_table/pull/73))
+
+***
+
 # SmartTable v1.6.9 Release Notes
 
 **发布日期 / Release Date**: 2026-10-18

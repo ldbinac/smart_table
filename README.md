@@ -285,9 +285,11 @@
 docker run -d \
   --name smarttable \
   -p 80:80 \
-  -v smarttable_data:/app/data \
-  -v smarttable_uploads:/app/uploads \
-  -v smarttable_redis:/data/redis \
+  -e SECRET_KEY=改成你的自己的key值 \
+  -e JWT_SECRET_KEY=改成你的自己的key值 \
+  -v /app/SmartTableData/data:/app/data \
+  -v /app/SmartTableData/uploads:/app/uploads \
+  -v /app/SmartTableData/redis:/data/redis \
   ygbinac/smarttable:latest
 ```
 
@@ -300,16 +302,18 @@ services:
     container_name: smarttable
     ports:
       - "80:80"
+    environment:
+      SECRET_KEY: 改成你的自己的key值
+      JWT_SECRET_KEY: 改成你的自己的key值
     volumes:
-      - smarttable_data:/app/data
-      - smarttable_uploads:/app/uploads
-      - smarttable_redis:/data/redis
+      - /app/SmartTableData/data:/app/data
+      - /app/SmartTableData/uploads:/app/uploads
+      - /app/SmartTableData/redis:/data/redis
+      # 应用日志（包含 Flask 日志、Nginx 日志、Supervisor 日志）
+      - /app/SmartTableData/logs/app/app:/app/logs
+      - /app/SmartTableData/logs/app/nginx:/var/log/nginx
+      - /app/SmartTableData/logs/app/supervisor:/var/log/supervisor
     restart: unless-stopped
-
-volumes:
-  smarttable_data:
-  smarttable_uploads:
-  smarttable_redis:
 ```
 
 ## 开发环境
@@ -689,9 +693,11 @@ environment:
 docker run -d \
   --name smarttable \
   -p 80:80 \
-  -v smarttable_data:/app/data \
-  -v smarttable_uploads:/app/uploads \
-  -v smarttable_redis:/data/redis \
+  -e SECRET_KEY=改成你的自己的key值 \
+  -e JWT_SECRET_KEY=改成你的自己的key值 \
+  -v /app/SmartTableData/data:/app/data \
+  -v /app/SmartTableData/uploads:/app/uploads \
+  -v /app/SmartTableData/redis:/data/redis \
   ygbinac/smarttable:latest
 ```
 
@@ -704,16 +710,18 @@ services:
     container_name: smarttable
     ports:
       - "80:80"
+    environment:
+      SECRET_KEY: 改成你的自己的key值
+      JWT_SECRET_KEY: 改成你的自己的key值
     volumes:
-      - smarttable_data:/app/data
-      - smarttable_uploads:/app/uploads
-      - smarttable_redis:/data/redis
+      - /app/SmartTableData/data:/app/data
+      - /app/SmartTableData/uploads:/app/uploads
+      - /app/SmartTableData/redis:/data/redis
+      # 应用日志（包含 Flask 日志、Nginx 日志、Supervisor 日志）
+      - /app/SmartTableData/logs/app/app:/app/logs
+      - /app/SmartTableData/logs/app/nginx:/var/log/nginx
+      - /app/SmartTableData/logs/app/supervisor:/var/log/supervisor
     restart: unless-stopped
-
-volumes:
-  smarttable_data:
-  smarttable_uploads:
-  smarttable_redis:
 ```
 
 ### 源码部署
