@@ -110,20 +110,30 @@ def init_extensions(app):
             from sqlalchemy import event
             from sqlalchemy.engine import Engine
 
+            # Docker 环境（尤其是 Windows Docker Desktop volume）上 WAL 有两个已知问题：
+            # 1. eventlet.monkey_patch 后 SQLite 无法正确打开已存在的 -wal/-shm 辅助文件
+            #    → "unable to open database file"
+            # 2. NTFS → ext4 文件锁不兼容，SQLite WAL 的 Checkpoint 经常触发 disk I/O error
+            # 解决方案：Docker 环境自动降级为 DELETE journal，用 busy_timeout 补偿并发等待
+            # 非 Docker 开发环境保持 WAL（读写并发性能更优）
+            _is_docker = os.environ.get('DOCKER_ENV', 'false').lower() == 'true'
+            _journal_mode = 'DELETE' if _is_docker else 'WAL'
+            app.logger.info(f'[Extensions] SQLite journal_mode={_journal_mode} '
+                            f'(docker={_is_docker})')
+
             @event.listens_for(Engine, "connect")
             def _set_sqlite_pragma(dbapi_connection, connection_record):
                 """每个新 SQLite 连接都设置 PRAGMA"""
                 try:
                     cursor = dbapi_connection.cursor()
-                    # WAL：Write-Ahead Logging，允许读写并发
-                    cursor.execute("PRAGMA journal_mode=WAL")
+                    cursor.execute(f"PRAGMA journal_mode={_journal_mode}")
                     # 遇锁等 5 秒再抛错（默认 0 = 立刻失败）
                     cursor.execute("PRAGMA busy_timeout=5000")
                     # # 强制外键（SQLite 默认 OFF）
                     # cursor.execute("PRAGMA foreign_keys=ON")
-                    # WAL 模式下的同步级别（NORMAL：OS 崩溃安全，断电可能丢最后几个事务）
+                    # NORMAL：OS 崩溃安全，断电可能丢最后几个事务
                     cursor.execute("PRAGMA synchronous=NORMAL")
-                    # 临时内存存储模式（WAL + 内存 temp_store）
+                    # 临时内存存储模式
                     cursor.execute("PRAGMA temp_store=MEMORY")
                     cursor.close()
                 except Exception as _e:
@@ -132,12 +142,15 @@ def init_extensions(app):
             # listener 只对后续新建连接生效，已存在的连接手动执行一次
             try:
                 with engine.connect() as conn:
-                    conn.execute(db.text("PRAGMA journal_mode=WAL"))
+                    conn.execute(db.text(f"PRAGMA journal_mode={_journal_mode}"))
                     conn.execute(db.text("PRAGMA busy_timeout=5000"))
                     conn.execute(db.text("PRAGMA foreign_keys=ON"))
                     conn.execute(db.text("PRAGMA synchronous=NORMAL"))
                     conn.execute(db.text("PRAGMA temp_store=MEMORY"))
-                app.logger.info('[Extensions] ✓ SQLite WAL mode + busy_timeout=5000 configured')
+                app.logger.info(
+                    f'[Extensions] ✓ SQLite {_journal_mode} journal + '
+                    f'busy_timeout=5000 configured'
+                )
             except Exception as e:
                 app.logger.warning(f'[Extensions] SQLite PRAGMA setup failed: {e}')
         else:

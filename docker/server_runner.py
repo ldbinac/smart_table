@@ -11,7 +11,18 @@ eventlet 原生支持 HTTP + WebSocket 混合流量。
 """
 import eventlet
 # monkey_patch 必须在导入应用之前执行，确保所有标准库模块被正确替换
-eventlet.monkey_patch()
+#
+# 注意：eventlet 默认 patch os/threading/time/select/socket 等所有模块。
+# SQLite (C 扩展) + eventlet monkey_patch 存在兼容性问题：
+#   1. eventlet 替换 os.path 后，SQLite 打开已存在的 .db/-wal/-shm 辅助文件
+#      时可能触发 "unable to open database file"
+#   2. eventlet 替换 time 后，SQLite busy_timeout 的 retry loop 被 greenlet
+#      调度干扰，锁等待超时抛 "database is locked"
+#   3. eventlet 替换 threading.local 后，SQLAlchemy QueuePool 的 per-thread
+#      连接隔离失效，连接池状态错乱
+# 解决：patch 时排除 os / time / thread 三个模块（eventlet 的 thread 参数同时控制 thread + threading + Queue），
+# 保留 socket / select / ssl 让 WebSocket 和 eventlet.wsgi.server 正常工作即可。
+eventlet.monkey_patch(os=False, time=False, thread=False)
 # 显式导入 eventlet.wsgi，monkey_patch 不会自动加载此子模块
 import eventlet.wsgi
 
