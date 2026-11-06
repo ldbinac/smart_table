@@ -33,6 +33,7 @@ export const FieldType = {
   DURATION: "duration",
   BUTTON: "button",
   GEOLOCATION: "geolocation",
+  SIGNATURE: "signature",
 } as const;
 
 export type FieldTypeValue = (typeof FieldType)[keyof typeof FieldType];
@@ -350,6 +351,7 @@ export function getFieldTypeLabel(type: string): string {
     "updated_time",
     "last_modified_by",
     "geolocation",
+    "signature",
   ];
   if (!supportedTypes.includes(type)) return type;
   return t(`field.type.${type}`);
@@ -403,6 +405,7 @@ export function getUserCreatableFieldTypeOptions(options?: {
     FieldType.URL,
     FieldType.AUTO_NUMBER,
     FieldType.GEOLOCATION,
+    FieldType.SIGNATURE,
   ];
 
   const specialTypes: FieldTypeValue[] = [
@@ -537,6 +540,7 @@ const fieldTypeIconComponentMap: Record<string, Component> = {
   updated_time: Timer,
   auto_number: List,
   geolocation: LocationInformation,
+  signature: EditPen,
 };
 
 /**
@@ -618,6 +622,8 @@ export const fieldTypeSvgContentMap: Record<string, string> = {
     '<path fill="currentColor" d="M813.176 180.706a60.235 60.235 0 0 1 60.236 60.235v481.883a60.235 60.235 0 0 1-60.236 60.235H210.824a60.235 60.235 0 0 1-60.236-60.235V240.94a60.235 60.235 0 0 1 60.236-60.235h602.352zm0-60.235H210.824A120.47 120.47 0 0 0 90.353 240.94v481.883a120.47 120.47 0 0 0 120.47 120.47h602.353a120.47 120.47 0 0 0 120.471-120.47V240.94a120.47 120.47 0 0 0-120.47-120.47zm-120.47 180.705a30.12 30.12 0 0 0-30.118 30.118v301.177a30.118 30.118 0 0 0 60.236 0V331.294a30.12 30.12 0 0 0-30.118-30.118m-361.412 0a30.12 30.12 0 0 0-30.118 30.118v301.177a30.118 30.118 0 1 0 60.236 0V331.294a30.12 30.12 0 0 0-30.118-30.118M512 361.412a30.12 30.12 0 0 0-30.118 30.117v30.118a30.118 30.118 0 0 0 60.236 0V391.53A30.12 30.12 0 0 0 512 361.412M512 512a30.12 30.12 0 0 0-30.118 30.118v30.117a30.118 30.118 0 0 0 60.236 0v-30.117A30.12 30.12 0 0 0 512 512"/>',
   geolocation:
     '<path fill="currentColor" d="M512 64C348.8 64 217.6 195.2 217.6 358.4 217.6 588.8 512 960 512 960s294.4-371.2 294.4-601.6C806.4 195.2 675.2 64 512 64z m0 384a128 128 0 1 1 0-256 128 128 0 0 1 0 256z"/>',
+  signature:
+    '<path fill="currentColor" d="m199.04 672.64 193.984 112 224-387.968-193.92-112-224 388.032zm-23.872 60.16 32.896 148.288 144.896-45.696zM455.04 229.248l193.92 112 56.704-98.112-193.984-112zM104.32 708.8l384-665.024 304.768 175.936L409.152 884.8h.064l-248.448 78.336zm384 254.272v-64h448v64z"/>',
 };
 
 /**

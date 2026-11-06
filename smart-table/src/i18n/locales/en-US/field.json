@@ -235,7 +235,29 @@
     "updated_by": "Updated By",
     "updated_time": "Updated Time",
     "last_modified_by": "Last Modified By",
-    "geolocation": "Geolocation"
+    "geolocation": "Geolocation",
+    "signature": "Signature"
+  },
+  "signature": {
+    "title": "Signature",
+    "handwriteMode": "Handwrite",
+    "inputMode": "Input Name",
+    "clear": "Clear",
+    "cancel": "Cancel",
+    "save": "Save",
+    "emptyHint": "Click to sign",
+    "canvasPlaceholder": "Sign here",
+    "inputPlaceholder": "Enter your name",
+    "fontFamily": "Font",
+    "fontPlaceholder": "Select signature font",
+    "fontCursive": "Cursive",
+    "fontDefault": "Print",
+    "signatureTip": "Signature is for record-keeping only and has no legal effect",
+    "deleteConfirm": "Delete this signature?",
+    "saveSuccess": "Signature saved successfully",
+    "reSign": "Re-sign",
+    "deleteBtn": "Delete Signature",
+    "btnSign": "Click to Sign"
   },
   "geo": {
     "format": {

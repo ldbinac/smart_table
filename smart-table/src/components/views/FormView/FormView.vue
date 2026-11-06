@@ -11,6 +11,7 @@ import { FormulaEngine } from "@/utils/formula/engine";
 import { formatNumberField, createNumberInputFormatter, createNumberInputParser, getNumberFieldPrefix, getNumberFieldSuffix } from "@/utils/numberFormat";
 import { isFieldRequired, isValueEmpty } from "@/utils/validation";
 import AttachmentField from "@/components/fields/AttachmentField.vue";
+import SignatureField from "@/components/fields/SignatureField.vue";
 import RichTextField from "@/components/fields/RichTextField.vue";
 import LinkField from "@/components/fields/LinkField/LinkField.vue";
 import GeoField from "@/components/fields/geo/GeoField.vue";
@@ -539,6 +540,8 @@ function getFieldComponentType(field: FieldEntity): string {
       return "formula";
     case FieldType.ATTACHMENT:
       return "attachment";
+    case FieldType.SIGNATURE:
+      return "signature";
     case FieldType.AUTO_NUMBER:
       return "auto_number";
     case FieldType.MEMBER:
@@ -896,6 +899,16 @@ defineExpose({
                 @update:model-value="(val) => handleFieldChange(field.id, val)"
                 @upload="(files) => handleAttachmentUpload(field.id, files)"
                 @delete="(fileId) => handleAttachmentDelete(field.id, fileId)" />
+            </template>
+
+            <!-- 签字字段类型 -->
+            <template v-else-if="getFieldComponentType(field) === 'signature'">
+              <SignatureField
+                :model-value="formValues[field.id]"
+                :field="field"
+                :record-id="props.record?.id || newRecordId"
+                :readonly="readonly"
+                @update:model-value="(val) => handleFieldChange(field.id, val)" />
             </template>
 
             <!-- 自动编号字段类型 -->

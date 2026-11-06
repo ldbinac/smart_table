@@ -228,6 +228,16 @@ export const OPERATORS_BY_FIELD_TYPE: Record<string, FilterOperatorValue[]> = {
     FilterOperator.IS_EMPTY,
     FilterOperator.IS_NOT_EMPTY,
   ],
+  // 附件字段：按是否为空筛选
+  [FieldType.ATTACHMENT]: [
+    FilterOperator.IS_EMPTY,
+    FilterOperator.IS_NOT_EMPTY,
+  ],
+  // 签字字段：按是否为空筛选
+  [FieldType.SIGNATURE]: [
+    FilterOperator.IS_EMPTY,
+    FilterOperator.IS_NOT_EMPTY,
+  ],
 };
 
 /** 公式字段按结果类型分派操作符（date/datetime 用时间戳数值比较） */

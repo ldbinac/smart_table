@@ -13,6 +13,7 @@ import { useAuthStore } from "@/stores/authStore";
 import { generateId } from "@/utils/id";
 import dayjs from "dayjs";
 import AttachmentField from "@/components/fields/AttachmentField.vue";
+import SignatureField from "@/components/fields/SignatureField.vue";
 import RichTextField from "@/components/fields/RichTextField.vue";
 import LinkField from "@/components/fields/LinkField/LinkField.vue";
 import GeoField from "@/components/fields/geo/GeoField.vue";
@@ -677,6 +678,8 @@ function getFieldComponentType(field: FormFieldSchema): string {
       return "formula";
     case FieldType.ATTACHMENT:
       return "attachment";
+    case FieldType.SIGNATURE:
+      return "signature";
     case FieldType.COLLABORATOR:
     case FieldType.CREATED_BY:
     case FieldType.LAST_MODIFIED_BY:
@@ -1154,6 +1157,17 @@ function calculateFormulaValue(field: FormFieldSchema): string {
                 @delete="
                   (fileId) => handleAttachmentDelete(field.id, fileId)
                 " />
+            </template>
+
+            <!-- 签字字段类型 -->
+            <template v-else-if="getFieldComponentType(field) === 'signature'">
+              <SignatureField
+                :model-value="formValues[field.id]"
+                :field="field as unknown as FieldEntity"
+                :record-id="newRecordId"
+                :form-share-token="shareToken"
+                :readonly="isReadonly(field)"
+                @update:model-value="(val) => handleFieldChange(field.id, val)" />
             </template>
 
             <!-- 自动编号字段类型 -->

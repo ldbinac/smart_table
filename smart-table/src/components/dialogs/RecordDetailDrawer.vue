@@ -41,6 +41,7 @@ import {
 } from "@/utils/validation";
 import type { CellValue } from "@/types";
 import AttachmentField from "@/components/fields/AttachmentField.vue";
+import SignatureField from "@/components/fields/SignatureField.vue";
 import DateInput from "@/components/fields/DateInput.vue";
 import RecordHistoryDrawer from "./RecordHistoryDrawer.vue";
 import LinkField from "@/components/fields/LinkField/LinkField.vue";
@@ -639,6 +640,8 @@ const getFieldComponent = (field: FieldEntity): string => {
       return "formula";
     case FieldType.ATTACHMENT:
       return "attachment";
+    case FieldType.SIGNATURE:
+      return "signature";
     case FieldType.LINK:
       return "link";
     case FieldType.GEOLOCATION:
@@ -1132,8 +1135,17 @@ const effectiveSize = computed<string | number>(() => {
               @delete="(fileId) => handleAttachmentDelete(field.id, fileId)" />
           </template>
 
+          <!-- 签字类型 -->
+          <template v-else-if="getFieldComponent(field) === 'signature'">
+            <SignatureField
+              :model-value="formData[field.id] as string | null"
+              :field="field"
+              :record-id="record?.id"
+              :readonly="readonly"
+              @update:model-value="(val) => handleValueChange(field.id, val)" />
+          </template>
+
           <!-- 成员类型 -->
-          <!-- 统一使用数组格式存储成员字段值 -->
           <template v-else-if="getFieldComponent(field) === 'member'">
             <MemberSelect
               :model-value="(formData[field.id] as string | null)"

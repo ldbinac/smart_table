@@ -185,6 +185,8 @@ declare module 'vue' {
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
     ShortcutDialog: typeof import('./components/common/ShortcutDialog.vue')['default']
+    SignatureField: typeof import('./components/fields/SignatureField.vue')['default']
+    SignaturePad: typeof import('./components/fields/signature/SignaturePad.vue')['default']
     SingleLineTextField: typeof import('./components/fields/SingleLineTextField.vue')['default']
     SingleSelectField: typeof import('./components/fields/SingleSelectField.vue')['default']
     Skeleton: typeof import('./components/common/Skeleton.vue')['default']

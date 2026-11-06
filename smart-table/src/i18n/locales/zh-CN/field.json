@@ -235,7 +235,29 @@
     "updated_by": "更新人",
     "updated_time": "更新时间",
     "last_modified_by": "最后修改人",
-    "geolocation": "地理位置"
+    "geolocation": "地理位置",
+    "signature": "签字"
+  },
+  "signature": {
+    "title": "签字",
+    "handwriteMode": "手写签字",
+    "inputMode": "输入签字",
+    "clear": "清除",
+    "cancel": "取消",
+    "save": "保存",
+    "emptyHint": "点击此处签字",
+    "canvasPlaceholder": "在此处手写签名",
+    "inputPlaceholder": "请输入姓名",
+    "fontFamily": "字体",
+    "fontPlaceholder": "选择签字字体",
+    "fontCursive": "手写体",
+    "fontDefault": "印刷体",
+    "signatureTip": "签字仅为辅助记录功能，不具有法律效力",
+    "deleteConfirm": "确定删除签字吗？",
+    "saveSuccess": "签字保存成功",
+    "reSign": "重新签字",
+    "deleteBtn": "删除签字",
+    "btnSign": "点击签字"
   },
   "geo": {
     "format": {

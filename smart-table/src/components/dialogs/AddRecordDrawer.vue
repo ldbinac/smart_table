@@ -33,6 +33,7 @@ import {
 } from "@/utils/validation";
 import type { CellValue } from "@/types";
 import AttachmentField from "@/components/fields/AttachmentField.vue";
+import SignatureField from "@/components/fields/SignatureField.vue";
 import RichTextField from "@/components/fields/RichTextField.vue";
 import DateInput from "@/components/fields/DateInput.vue";
 import LinkField from "@/components/fields/LinkField/LinkField.vue";
@@ -276,6 +277,8 @@ function getFieldComponent(field: FieldEntity) {
       return "progress";
     case FieldType.ATTACHMENT:
       return "attachment";
+    case FieldType.SIGNATURE:
+      return "signature";
     case FieldType.MEMBER:
       return "member";
     case FieldType.AUTO_NUMBER:
@@ -804,6 +807,15 @@ const drawerTitle = computed(() => {
               @update:model-value="(val) => handleValueChange(field.id, val)"
               @upload="(files) => handleAttachmentUpload(field.id, files)"
               @delete="(fileId) => handleAttachmentDelete(field.id, fileId)" />
+          </template>
+
+          <!-- 签字类型 -->
+          <template v-else-if="getFieldComponent(field) === 'signature'">
+            <SignatureField
+              :model-value="formData[field.id] as string | null"
+              :field="field"
+              :record-id="newRecordId"
+              @update:model-value="(val) => handleValueChange(field.id, val)" />
           </template>
 
           <!-- 成员类型 -->

@@ -1,5 +1,7 @@
 {
   "confirm": "Confirm",
+  "confirmTitle": "Confirm",
+  "confirmBtn": "OK",
   "cancel": "Cancel",
   "save": "Save",
   "saved": "Saved",

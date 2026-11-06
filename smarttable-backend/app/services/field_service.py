@@ -851,6 +851,10 @@ class FieldService:
         if value is None:
             return True, None
         
+        # 签字字段不支持默认值
+        if field_type == FieldType.SIGNATURE.value:
+            return False, translate('field_type_no_default_value', field_type)
+        
         # 特殊处理动态默认值
         if value == 'now':
             if field_type in [FieldType.DATE.value, FieldType.DATE_TIME.value]:
@@ -1106,6 +1110,12 @@ class FieldService:
                 'icon': 'map-pin',
                 'description': '省份/城市/区县/国家和地区/经纬度/地图选点',
                 'configurable': ['geo_format', 'geo_language', 'default_value']
+            },
+            FieldType.SIGNATURE.value: {
+                'name': '签字',
+                'icon': 'edit-pen',
+                'description': '手写签字或输入签字，以 PNG 图片格式存储',
+                'configurable': []
             }
         }
         

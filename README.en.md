@@ -12,7 +12,7 @@ A smart multi-dimensional table system based on Vue 3 + Flask, similar to Airtab
 
 - **Base Management** - Create, edit, delete, star multi-dimensional tables with member management and sharing
 - **Table Management** - Support multiple tables with drag-sort, rename, delete, and duplicate
-- **Field Management** - Support **27 field types** with configuration, sorting, visibility control, and default values
+- **Field Management** - Support **28 field types** with configuration, sorting, visibility control, and default values
 - **Record Management** - CRUD operations, batch actions, detail drawer, and change history tracking
 - **View Management** - **6 view types** with filtering, sorting, grouping, view switching, and column freezing
 - **Document Management** - Document CRUD, rich text editing (Quill), Markdown support, PDF export, version history
@@ -21,7 +21,7 @@ A smart multi-dimensional table system based on Vue 3 + Flask, similar to Airtab
 - **Plugin System** - Plugin management page supports upload/install, enable/disable, upgrade/rollback/uninstall; supports UI plugins (iframe sandbox + Vue templates) and script plugins (restricted subprocess), can read table selected records for batch processing
 - **Audit Log** - Complete audit log system with trace tracking
 
-### 📝 Supported Field Types (27 Types)
+### 📝 Supported Field Types (28 Types)
 
 | Category            | Field Type       | Description                                                         | Status |
 | ------------------- | ---------------- | ------------------------------------------------------------------- | ------ |
@@ -39,6 +39,7 @@ A smart multi-dimensional table system based on Vue 3 + Flask, similar to Airtab
 | **Contact Types**   | Email            | Email address input and validation                                  | ✅      |
 | **Contact Types**   | URL              | URL link with click-to-navigate                                     | ✅      |
 | **Media Types**     | Attachment       | File upload/download with image preview and thumbnails              | ✅      |
+| **Media Types**     | Signature        | Handwritten / typed signature stored as a PNG attachment            | ✅      |
 | **Computed Types**  | Formula          | 76 built-in functions with field references, cross-table column references, and nested calculations | ✅      |
 | **Relation Types**  | Link             | Table relationships supporting one-to-one/one-to-many/many-to-many  | ✅      |
 | **Lookup Types**    | Lookup           | Cross-table queries with aggregation (sum/avg/count/etc.)           | ✅      |

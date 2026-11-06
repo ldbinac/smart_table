@@ -29,6 +29,7 @@ import UpdatedTimeField from "./UpdatedTimeField.vue";
 import AutoNumberField from "./AutoNumberField.vue";
 import FormulaField from "./FormulaField.vue";
 import GeoField from "./geo/GeoField.vue";
+import SignatureField from "./SignatureField.vue";
 import type { FieldEntity, RecordEntity } from "@/db/schema";
 
 interface Field {
@@ -86,6 +87,7 @@ const componentMap: Record<string, unknown> = {
   [FieldType.AUTO_NUMBER]: AutoNumberField,
   [FieldType.FORMULA]: FormulaField,
   [FieldType.GEOLOCATION]: GeoField,
+  [FieldType.SIGNATURE]: SignatureField,
 };
 
 const currentComponent = computed(() => {

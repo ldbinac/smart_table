@@ -1,5 +1,7 @@
 {
   "confirm": "确认",
+  "confirmTitle": "确认",
+  "confirmBtn": "确定",
   "cancel": "取消",
   "save": "保存",
   "saved": "已保存",

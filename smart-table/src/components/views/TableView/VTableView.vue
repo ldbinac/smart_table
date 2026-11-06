@@ -29,6 +29,7 @@ import type { FieldTypeValue, GeoFormat, GeoValue } from "@/types/fields";
 import type { CellValue } from "@/types";
 import { formatGeoValue } from "@/utils/geo";
 import GeoField from "@/components/fields/geo/GeoField.vue";
+import SignatureField from "@/components/fields/SignatureField.vue";
 import { formatDateTime, formatDate } from "@/utils/timezone";
 import { useUserCacheStore } from "@/stores/userCacheStore";
 import { validateFieldFormat } from "@/utils/validation";
@@ -43,6 +44,7 @@ import { getSystemFieldDisplayValue } from "@/utils/systemFields";
 import { linkApiService } from "@/services/api/linkApiService";
 import { viewApiService } from "@/services/api/viewApiService";
 import { recordApiService } from "@/services/api/recordApiService";
+import { attachmentService } from "@/db/services";
 
 // 导入 VTable
 import { ListTable, themes, register as registerVTable } from "@visactor/vtable";
@@ -122,6 +124,41 @@ const resolveSystemUserName = (userId: string): string =>
 const tableContainerRef = ref<HTMLElement | null>(null);
 let tableInstance: ListTable | null = null;
 let smartDataSource: SmartTableDataSource | null = null;
+
+// 签名图片 URL 缓存（附件 ID → objectURL），用于 customLayout 异步渲染签名图片
+const signatureUrlCache = new Map<string, string>();
+// 正在加载中的签名 ID（避免重复请求）
+const signatureLoadingIds = new Set<string>();
+
+/**
+ * 异步加载签名附件的 URL，加载完成后缓存并重绘表格
+ */
+async function loadSignatureUrl(attachmentId: string) {
+  if (!attachmentId || signatureUrlCache.has(attachmentId) || signatureLoadingIds.has(attachmentId)) return;
+  signatureLoadingIds.add(attachmentId);
+  try {
+    // 先查 IndexedDB，没有再从后端下载（支持分享表单匿名提交的附件）
+    const local = await attachmentService.getAttachment(attachmentId);
+    let blob: Blob;
+    if (local?.data) {
+      blob = local.data;
+    } else {
+      blob = await attachmentService.getAttachmentBlob(attachmentId);
+    }
+    const url = URL.createObjectURL(blob);
+    signatureUrlCache.set(attachmentId, url);
+    if (tableInstance) {
+      const ti = tableInstance as any;
+      if (typeof ti.renderWithRecreateCells === 'function') {
+        ti.renderWithRecreateCells();
+      }
+    }
+  } catch (err) {
+    console.error('加载签名图片失败:', err);
+  } finally {
+    signatureLoadingIds.delete(attachmentId);
+  }
+}
 
 // 主从表功能
 const {
@@ -293,6 +330,13 @@ const attachmentManagerInitialValue = ref<any>(null);
 const attachmentManagerOriginalRecord = ref<any>(null);
 // 记录触发浮窗的单元格坐标，用于滚动实时同步位置
 const lastAttachmentCellCoords = ref<{ col: number; row: number } | null>(null);
+
+// 签名弹窗状态（VTableView 单元格点击拦截后打开）
+const signatureDialogVisible = ref(false);
+const signatureDialogField = ref<FieldEntity | null>(null);
+const signatureDialogRecordId = ref<string>('');
+const signatureDialogValue = ref<string | null>(null);
+const signatureDialogOriginalRecord = ref<any>(null);
 
 // 图片缩略图单击预览状态（含上一张/下一张导航，仅遍历当前单元格内的图片）
 const attachmentImagePreviewVisible = ref(false);
@@ -3483,6 +3527,11 @@ const transformRecords = (rawRecords: RecordEntity[]): any[] => {
           row[field.id] = rawVal;
           break;
         }
+        case FieldType.SIGNATURE: {
+          // 签字字段：保持原始值（附件 ID string），渲染由 customLayout 处理
+          row[field.id] = rawVal || '';
+          break;
+        }
         case FieldType.CREATED_BY:
         case FieldType.CREATED_TIME:
         case FieldType.UPDATED_BY:
@@ -3597,6 +3646,11 @@ const transformTreeRecords = (records: any[], depth: number = 0): any[] => {
         case FieldType.ATTACHMENT: {
           // 附件字段：保持原始值，渲染由 customLayout 处理
           row[field.id] = rawVal;
+          break;
+        }
+        case FieldType.SIGNATURE: {
+          // 签字字段：保持原始值（附件 ID string），渲染由 customLayout 处理
+          row[field.id] = rawVal || '';
           break;
         }
         case FieldType.FORMULA: {
@@ -4512,6 +4566,96 @@ const enhanceSubTableColumns = (columns: any[], targetFields: any[]): any[] => {
             }
             return { rootContainer: container, renderDefault: false };
           }
+          case FieldType.SIGNATURE: {
+            // 签字字段：值为空 → 默认渲染；有附件 ID → 渲染签名图片或 loading
+            const sigId = typeof value === 'string' ? value : (value?.id ?? '');
+            if (!sigId) return { renderDefault: true };
+
+            const sigContainer = createGroup({
+              width: cellWidth,
+              height: cellHeight,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 4,
+              pickable: true,
+            });
+
+            const cachedUrl = signatureUrlCache.get(sigId);
+            const isLoading = signatureLoadingIds.has(sigId);
+
+            if (cachedUrl) {
+              // 图片已缓存 → 渲染缩略图
+              const itemSize = 32;
+              const imgGroup = createGroup({
+                width: itemSize,
+                height: itemSize,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              });
+              const img = createImage({
+                width: itemSize,
+                height: itemSize,
+                image: cachedUrl,
+                cornerRadius: 4,
+                cursor: 'pointer',
+              });
+              img.addEventListener('pointerdown', (e: any) => { e.stopPropagation?.(); });
+              imgGroup.add(img);
+              sigContainer.add(imgGroup);
+            } else if (isLoading) {
+              // 正在加载 → 显示 loading 图标
+              const loadingSize = 20;
+              const loadingGroup = createGroup({
+                width: loadingSize,
+                height: loadingSize,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              });
+              const loadingCircle = createCircle({
+                x: loadingSize / 2,
+                y: loadingSize / 2,
+                radius: loadingSize / 2 - 2,
+                stroke: '#909399',
+                lineWidth: 2,
+                fill: 'none',
+              });
+              loadingGroup.add(loadingCircle);
+              sigContainer.add(loadingGroup);
+            } else {
+              // 未开始加载 → 触发异步加载 + 显示绿色对勾占位
+              loadSignatureUrl(sigId);
+              const checkCircleSize = 20;
+              const checkCircleGroup = createGroup({
+                width: checkCircleSize,
+                height: checkCircleSize,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              });
+              const checkBg = createRect({
+                x: 0, y: 0, width: checkCircleSize, height: checkCircleSize,
+                cornerRadius: checkCircleSize / 2,
+                fill: '#52C41A',
+              });
+              checkCircleGroup.add(checkBg);
+              const checkIcon = createPath({
+                path: 'M6 10.5l3.5 3.5L14 7',
+                stroke: '#ffffff',
+                lineWidth: 2.5,
+                lineCap: 'round',
+                lineJoin: 'round',
+                fill: 'none',
+                x: 1, y: 2,
+              });
+              checkCircleGroup.add(checkIcon);
+              sigContainer.add(checkCircleGroup);
+            }
+
+            return { rootContainer: sigContainer, renderDefault: false };
+          }
         }
         return { renderDefault: true };
       };
@@ -4610,6 +4754,10 @@ const transformSubTableRecords = (records: any[], targetFields: any[]): any[] =>
             transformed[field.id] = rawVal; break;
           }
           transformed[field.id] = rawVal;
+          break;
+        }
+        case FieldType.SIGNATURE: {
+          transformed[field.id] = rawVal || '';
           break;
         }
         case FieldType.CREATED_BY:
@@ -4848,6 +4996,7 @@ const buildTableConfig = (): any => {
     FieldType.MEMBER,
     FieldType.RATING,
     FieldType.ATTACHMENT,
+    FieldType.SIGNATURE,
   ];
   columns.forEach((col: any) => {
     const field = orderedVisibleFields.value.find(f => f.id === col.field);
@@ -5320,6 +5469,93 @@ const buildTableConfig = (): any => {
           }
 
           return { rootContainer: container, renderDefault: false };
+        }
+        case FieldType.SIGNATURE: {
+          // 签字字段：值为空 → 默认渲染；有附件 ID → 渲染签名图片或 loading
+          const sigId = typeof value === 'string' ? value : (value?.id ?? '');
+          if (!sigId) return { renderDefault: true };
+
+          const sigContainer = createGroup({
+            width: cellWidth,
+            height: cellHeight,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 4,
+            pickable: true,
+          });
+
+          const cachedUrl = signatureUrlCache.get(sigId);
+          const isLoading = signatureLoadingIds.has(sigId);
+
+          if (cachedUrl) {
+            const itemSize = 32;
+            const imgGroup = createGroup({
+              width: itemSize,
+              height: itemSize,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            });
+            const img = createImage({
+              width: itemSize,
+              height: itemSize,
+              image: cachedUrl,
+              cornerRadius: 4,
+              cursor: 'pointer',
+            });
+            img.addEventListener('pointerdown', (e: any) => { e.stopPropagation?.(); });
+            imgGroup.add(img);
+            sigContainer.add(imgGroup);
+          } else if (isLoading) {
+            const loadingSize = 20;
+            const loadingGroup = createGroup({
+              width: loadingSize,
+              height: loadingSize,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            });
+            const loadingCircle = createCircle({
+              x: loadingSize / 2,
+              y: loadingSize / 2,
+              radius: loadingSize / 2 - 2,
+              stroke: '#909399',
+              lineWidth: 2,
+              fill: 'none',
+            });
+            loadingGroup.add(loadingCircle);
+            sigContainer.add(loadingGroup);
+          } else {
+            loadSignatureUrl(sigId);
+            const checkCircleSize = 20;
+            const checkCircleGroup = createGroup({
+              width: checkCircleSize,
+              height: checkCircleSize,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            });
+            const checkBg = createRect({
+              x: 0, y: 0, width: checkCircleSize, height: checkCircleSize,
+              cornerRadius: checkCircleSize / 2,
+              fill: '#52C41A',
+            });
+            checkCircleGroup.add(checkBg);
+            const checkIcon = createPath({
+              path: 'M6 10.5l3.5 3.5L14 7',
+              stroke: '#ffffff',
+              lineWidth: 2.5,
+              lineCap: 'round',
+              lineJoin: 'round',
+              fill: 'none',
+              x: 1, y: 2,
+            });
+            checkCircleGroup.add(checkIcon);
+            sigContainer.add(checkCircleGroup);
+          }
+
+          return { rootContainer: sigContainer, renderDefault: false };
         }
       }
 
@@ -6050,6 +6286,34 @@ const bindTableEvents = () => {
     // 点击图片缩略图时不触发单元格选择，预览由缩略图自身 pointertap 事件处理
     if (args.target?.name === 'attachment-thumbnail') {
       return;
+    }
+
+    // 签名字段：拦截点击，打开签名预览弹窗
+    if (args.col > 0) {
+      const sigField = orderedVisibleFields.value[args.col - 1];
+      if (sigField?.type === FieldType.SIGNATURE) {
+        const cellRecord = (tableInstance as any)?.getCellOriginRecord?.(args.col, args.row);
+        if (cellRecord) {
+          try { tableInstanceAny.cancelEditCell?.(); } catch {}
+          tableInstanceAny.fireListeners('selected', [{ cells: [] }]);
+
+          const sigValue = cellRecord[sigField.id] ?? cellRecord._originalRecord?.values?.[sigField.id] ?? null;
+          const rid = cellRecord._recordId || cellRecord._originalRecord?.id || cellRecord._originalRecord?._recordId || '';
+
+          if (!rid) {
+            ElMessage.warning(t('view.attachment.saveRecordFirst') || '请先保存记录');
+            return;
+          }
+
+          signatureDialogField.value = sigField;
+          signatureDialogRecordId.value = rid;
+          signatureDialogValue.value = sigValue;
+          signatureDialogOriginalRecord.value = cellRecord._originalRecord || null;
+
+          signatureDialogVisible.value = true;
+          return;
+        }
+      }
     }
 
     // 检测是否为虚拟添加按钮行点击
@@ -7317,6 +7581,48 @@ async function handleAttachmentUpdate(value: any) {
   }
 }
 
+// 签名弹窗：SignatureField 内部完成上传后 emit modelValue，这里只更新 record + 刷新
+async function handleSignatureUpdate(newValue: string | null) {
+  if (!signatureDialogRecordId.value || !signatureDialogField.value || !props.tableId) return;
+  const fieldId = signatureDialogField.value.id;
+  const recordId = signatureDialogRecordId.value;
+  const oldValue = signatureDialogValue.value;
+
+  try {
+    // 更新 record（SignatureField 已完成附件上传/删除）
+    const originalRecord = signatureDialogOriginalRecord.value;
+    const baseValues = originalRecord?.values || {};
+    const newValues = { ...baseValues, [fieldId]: newValue as CellValue };
+    await recordService.updateRecord(recordId, {
+      values: newValues as Record<string, CellValue>,
+    });
+
+    // 更新状态 + 刷新缓存 + 重绘
+    signatureUrlCache.delete(oldValue || '');
+    signatureDialogValue.value = newValue;
+
+    await tableStore.refreshRecords(props.tableId);
+    if (tableInstance) {
+      const ti = tableInstance as any;
+      if (typeof ti.renderWithRecreateCells === 'function') {
+        ti.renderWithRecreateCells();
+      }
+    }
+  } catch (error) {
+    console.error('签字保存失败:', error);
+    ElMessage.error(t('common.saveFailed') || '签字保存失败');
+  }
+}
+
+// 签名弹窗关闭（用户点关闭或取消）
+function closeSignatureDialog() {
+  signatureDialogVisible.value = false;
+  signatureDialogField.value = null;
+  signatureDialogRecordId.value = '';
+  signatureDialogValue.value = null;
+  signatureDialogOriginalRecord.value = null;
+}
+
 // ==================== 关联字段数据加载 ====================
 // 批量加载所有可见 LINK 字段的关联记录 display_value
 async function loadLinkDisplayData() {
@@ -7954,6 +8260,24 @@ watch(
         </template>
         <span v-if="attachmentImagePreviewHasNav" class="image-counter">{{ attachmentImagePreviewIndex + 1 }} / {{ attachmentImagePreviewFiles.length }}</span>
       </div>
+    </el-dialog>
+
+    <!-- 签字弹窗（VTableView 单元格点击拦截后打开） -->
+    <!-- 外层 Dialog 包 SignatureField（复用详情抽屉已验证的完整逻辑：缩略图 + 签字按钮 + 内部签字面板） -->
+    <el-dialog
+      v-if="signatureDialogVisible && signatureDialogField"
+      :model-value="signatureDialogVisible"
+      :title="signatureDialogField.name"
+      width="480px"
+      destroy-on-close
+      @update:model-value="(v) => { if (!v) closeSignatureDialog(); }"
+    >
+      <SignatureField
+        :model-value="signatureDialogValue"
+        :field="signatureDialogField"
+        :record-id="signatureDialogRecordId"
+        @update:model-value="handleSignatureUpdate"
+      />
     </el-dialog>
 
     <!-- 关联记录选择器 -->

@@ -48,6 +48,7 @@ class FieldType(PyEnum):
     URL = 'url'
     BUTTON = 'button'
     GEOLOCATION = 'geolocation'
+    SIGNATURE = 'signature'
 
 
 class Field(db.Model):
@@ -190,7 +191,8 @@ class Field(db.Model):
             FieldType.PHONE: '',
             FieldType.URL: '',
             FieldType.BUTTON: None,
-            FieldType.GEOLOCATION: None
+            FieldType.GEOLOCATION: None,
+            FieldType.SIGNATURE: None
         }
         return defaults.get(field_type)
     
@@ -271,6 +273,10 @@ class Field(db.Model):
             # 地理位置默认值应该是结构化对象
             if not isinstance(value, dict):
                 return False, f'字段 "{self.name}" 的默认值必须是地理信息对象'
+
+        elif field_type == FieldType.SIGNATURE:
+            # 签字字段不支持默认值
+            return False, f'字段 "{self.name}" 是签字字段，不支持默认值'
 
         return True, None
 
