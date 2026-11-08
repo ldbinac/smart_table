@@ -106,17 +106,23 @@ def run_migrations_online() -> None:
             target_metadata=target_metadata,
             compare_type=True,  # 比较列类型变化
             compare_server_default=True,  # 比较默认值变化
-            # 强制开启事务 DDL，让 context.begin_transaction() 返回真事务而非 nullcontext()。
-            # SQLite 默认 dialect.supports_ddl_transactions=False 导致 Alembic
-            # 内部的 DELETE + INSERT alembic_version 在 connection.close() 时
-            # 全部被 rollback（隐式 autobegin 事务无显式 commit）。
-            # SQLite 3.7.3+ 已完整支持事务 DDL（RENAME/CREATE/INSERT/DROP），
-            # 我们的 batch_alter_table 正是这些操作，因此安全开启。
-            # PG/MySQL 本来就 supports_ddl_transactions=True，此参数无副作用。
-            transactional_ddl=True,
+            # ⚠️ 关键：transactional_ddl 一律关掉。
+            # 原因：开启后 Alembic 的 begin_transaction() 返回真事务，
+            # 但事务结束时 Alembic 的 commit 没有正确落到磁盘（SQLite
+            # WAL + SQLAlchemy 2.0 autobegin 组合的 commit 丢失 bug），
+            # Connection.__exit__ 时 SQLAlchemy 把未显式 commit 的
+            # alembic_version INSERT 全部 rollback 掉，导致多 head 场景
+            # 永远只记录一个分支。
+            # 解决方案：用 nullcontext 让 Alembic 不管理事务，
+            # 外层自己 connection.begin() + commit() 兜底。
+            transactional_ddl=False,
         )
 
-        with context.begin_transaction():
+        # 自己管理事务：connection.begin() 开启显式事务，
+        # 让 Alembic 的所有迁移 SQL（包括 alembic_version 写入）
+        # 都在同一个事务里执行，结束后显式 commit 确保持久化。
+        # SQLite 3.7.3+ 完整支持事务 DDL，batch_alter_table 安全。
+        with connection.begin():
             context.run_migrations()
 
 

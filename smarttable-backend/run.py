@@ -249,6 +249,12 @@ def _needs_upgrade(migrations_dir, db_engine) -> bool:
     返回 True 表示 DB 版本落后、需要升级；False 表示已处于最新状态。
     读取失败（无 alembic_version 表、迁移目录异常等）时返回 True
     （保守策略：宁可多跑一次升级，不可漏跑导致数据不一致）。
+
+    ⚠️ 关键：多 head 场景（versions/ + versions_fa/ 等多层迁移目录）
+    必须用 MigrationContext.get_current_heads() 而非 get_current_revision()。
+    后者在 alembic_version 表有多个版本号时直接抛 CommandError，
+    不会返回 tuple！Alembic 源码明确写了：
+        "please use get_current_heads()"
     """
     import os as _os
     from alembic.config import Config as _AlembicConfig
@@ -279,14 +285,12 @@ def _needs_upgrade(migrations_dir, db_engine) -> bool:
             if not inspector:
                 return True
             context = _MigrationContext.configure(conn)
-            # get_current_revision() 在多 head 场景返回 tuple，单 head 返回 str
-            current = context.get_current_revision()
-            if current is None:
+            # 必须用 get_current_heads()——单 head 返回 (rev,)，多 head 返回 (rev1, rev2, ...)
+            # get_current_revision() 在多 head 时直接抛 CommandError！
+            current_heads = context.get_current_heads()
+            if not current_heads:
                 return True
-            if isinstance(current, str):
-                current_set = {current}
-            else:
-                current_set = set(current)
+            current_set = set(current_heads)
 
         return current_set != heads
 
@@ -294,6 +298,57 @@ def _needs_upgrade(migrations_dir, db_engine) -> bool:
         # 任何异常都保守返回 True，让上层决定是否升级
         print(f'[Migrate] ⚠️ 版本比较失败（保守返回需要升级）: {e}')
         return True
+
+
+def _ensure_all_heads(migrations_dir, db_engine) -> None:
+    """
+    逐个 upgrade 到每个 head，绕过 Alembic 的单头短路 bug。
+
+    背景：Alembic 的 upgrade('heads') 在 DB 已记录某个 head
+    （get_current_revision() 返回 str 而非 tuple）时，
+    会认为"当前已是 head 无需升级"，直接跳过所有其他分支。
+    手动列出所有 head 逐个 upgrade 能确保每个分支都被覆盖。
+    """
+    import os as _os
+    from alembic.config import Config as _AlembicConfig
+    from alembic.script import ScriptDirectory as _ScriptDirectory
+    from flask_migrate import upgrade as _flask_upgrade
+
+    _LAYER_DIRS = ('versions', 'versions_fa', 'versions_am', 'versions_ap')
+
+    try:
+        config = _AlembicConfig()
+        config.set_main_option('script_location', str(migrations_dir))
+        locations = [
+            _os.path.join(str(migrations_dir), layer)
+            for layer in _LAYER_DIRS
+            if _os.path.isdir(_os.path.join(str(migrations_dir), layer))
+        ]
+        if locations:
+            config.set_main_option('version_path_separator', 'os')
+            config.set_main_option('version_locations', _os.pathsep.join(locations))
+
+        script = _ScriptDirectory.from_config(config)
+        heads = list(script.get_heads())
+
+        if len(heads) <= 1:
+            # 单 head：直接用原始 upgrade('heads') 即可
+            _flask_upgrade(directory=str(migrations_dir), revision='heads')
+            return
+
+        print(f'[Migrate] 检测到 {len(heads)} 个分支 head: {heads}')
+        for head_rev in heads:
+            try:
+                _flask_upgrade(directory=str(migrations_dir), revision=head_rev)
+                print(f'[Migrate] ✅ head {head_rev} 升级完成')
+            except Exception as head_err:
+                # 单个 head 失败不应阻塞其他分支，继续处理
+                print(f'[Migrate] ⚠️ head {head_rev} 升级跳过: {head_err}')
+
+    except Exception as e:
+        # 兜底：回到原始 upgrade('heads')，让 Alembic 自己处理
+        print(f'[Migrate] ⚠️ 多 head 升级逻辑异常，降级为原始 upgrade heads: {e}')
+        _flask_upgrade(directory=str(migrations_dir), revision='heads')
 
 
 def _backup_database(db_engine, db_uri: str) -> str:
@@ -605,10 +660,12 @@ def run_migrations():
             # 正确做法：让 Alembic 迁移链自然处理表创建。
 
             # 多层迁移目录会产生多个分支 head（各产品版本层各一个），
-            # 必须用 heads 而非 head，否则多 head 场景下 Alembic 会报错
-            upgrade(directory=str(migrations_dir), revision='heads')
-            # env.py transactional_ddl=True 已根治 SQLite 事务问题，
-            # Alembic 内部会在 upgrade 结束时正确 commit alembic_version 更新。
+            # 必须用 heads 而非 head，否则多 head 场景下 Alembic 会报错。
+            #
+            # ⚠️ Alembic 单头短路 bug：当 DB 已记录某个 head（返回 str 而非 tuple），
+            # upgrade('heads') 会认为"当前已是 head 无需升级"，漏跑其他分支迁移。
+            # 手动列出所有 head，逐个 upgrade 确保每个分支都被覆盖。
+            _ensure_all_heads(migrations_dir, db.engine)
             repair_schema_columns()
             print('[Migrate] ✅ 数据库迁移完成')
 
