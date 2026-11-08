@@ -11,6 +11,7 @@ from app.db_types import CompatUUID as UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.extensions import db
+from app.utils.datetime_utils import serialize_datetime
 
 
 class AttachmentType(PyEnum):
@@ -147,7 +148,7 @@ class Attachment(db.Model):
             'url': self.url,
             'thumbnail_url': self.thumbnail_url,
             'uploaded_by': str(self.uploaded_by) if self.uploaded_by else None,
-            'created_at': self.created_at.isoformat()
+            'created_at': serialize_datetime(self.created_at)
         }
 
     @staticmethod

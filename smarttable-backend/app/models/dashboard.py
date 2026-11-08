@@ -10,6 +10,7 @@ from app.db_types import CompatUUID as UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.extensions import db
+from app.utils.datetime_utils import serialize_datetime
 
 
 class Dashboard(db.Model):
@@ -111,8 +112,8 @@ class Dashboard(db.Model):
             'layout': self.layout or {},
             'is_public': self.is_public,
             'is_default': self.is_default,
-            'created_at': self.created_at.isoformat(),
-            'updated_at': self.updated_at.isoformat()
+            'created_at': serialize_datetime(self.created_at),
+            'updated_at': serialize_datetime(self.updated_at)
         }
         
         # 如果需要包含组件，添加 widgets 字段
@@ -192,8 +193,8 @@ class DashboardWidget(db.Model):
             'width': self.width,
             'height': self.height,
             'order': self.order,
-            'created_at': self.created_at.isoformat(),
-            'updated_at': self.updated_at.isoformat()
+            'created_at': serialize_datetime(self.created_at),
+            'updated_at': serialize_datetime(self.updated_at)
         }
 
     def __repr__(self) -> str:

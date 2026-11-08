@@ -28,10 +28,22 @@ import type { StreamingLoadState } from "../db/services/recordService";
 import { t } from "@/i18n";
 
 // 将后端广播的时间值（ISO 字符串或时间戳）转换为毫秒时间戳
+// 无时区后缀字符串按 UTC 解析（后端 SQLite 读出的 UTC 时间）
 function toTimestamp(value: unknown): number {
   if (typeof value === "number") return value;
   if (typeof value === "string") {
-    const t = new Date(value).getTime();
+    const trimmed = value.trim();
+    let t: number;
+    if (
+      trimmed.length >= 19 &&
+      !trimmed.endsWith("Z") &&
+      !trimmed.match(/[+-]\d{2}:\d{2}$/)
+    ) {
+      // 无时区后缀 → UTC，显式加 Z 解析
+      t = new Date(trimmed + "Z").getTime();
+    } else {
+      t = new Date(trimmed).getTime();
+    }
     if (!Number.isNaN(t)) return t;
   }
   return Date.now();

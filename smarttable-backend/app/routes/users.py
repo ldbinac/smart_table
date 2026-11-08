@@ -7,6 +7,7 @@ from sqlalchemy import or_, func
 
 from app.extensions import db
 from app.models.user import User, UserStatus
+from app.utils.datetime_utils import serialize_datetime
 from app.utils.decorators import jwt_required
 from app.utils.response import success_response, error_response
 
@@ -153,8 +154,8 @@ def get_user(user_id):
         'role': user.role.value if user.role else None,
         'status': user.status.value if user.status else None,
         'email_verified': user.email_verified,
-        'last_login_at': user.last_login_at.isoformat() if user.last_login_at else None,
-        'created_at': user.created_at.isoformat() if user.created_at else None,
+        'last_login_at': serialize_datetime(user.last_login_at),
+        'created_at': serialize_datetime(user.created_at),
     })
 
 

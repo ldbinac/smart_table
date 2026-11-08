@@ -258,11 +258,11 @@ class RecordService:
 
         # 处理自动编号字段
         auto_number_fields = [f for f in fields if f.type == FieldType.AUTO_NUMBER.value]
-        # 获取当前时间作为记录的创建日期（用于自动编号的日期前缀）
+        # 获取当前 UTC 时间作为记录的创建日期（用于自动编号的日期前缀）
         # 注意：不要在此函数内再 `from datetime import datetime`，
         # 局部导入会让 datetime 变为整个函数作用域的局部变量，
         # 导致上方默认值处理中的 datetime.now() 抛 UnboundLocalError
-        record_created_at = datetime.now()
+        record_created_at = datetime.now(timezone.utc)
         for field in auto_number_fields:
             field_id = str(field.id)
             if field_id not in final_values or not final_values[field_id]:

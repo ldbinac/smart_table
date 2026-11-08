@@ -11,6 +11,7 @@ from app.db_types import CompatUUID as UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.extensions import db
+from app.utils.datetime_utils import serialize_datetime
 
 
 def _enum_values(enum_class: type[PyEnum]) -> list[str]:
@@ -184,8 +185,8 @@ class Base(db.Model):
             'color': self.color,
             'is_personal': self.is_personal,
             'is_starred': self.is_starred,
-            'created_at': self.created_at.isoformat(),
-            'updated_at': self.updated_at.isoformat()
+            'created_at': serialize_datetime(self.created_at),
+            'updated_at': serialize_datetime(self.updated_at)
         }
 
         if include_stats:
@@ -280,7 +281,7 @@ class BaseMember(db.Model):
             'user_id': str(self.user_id),
             'role': self.role.value,
             'invited_by': str(self.invited_by) if self.invited_by else None,
-            'joined_at': self.joined_at.isoformat()
+            'joined_at': serialize_datetime(self.joined_at)
         }
 
         if include_user and self.user:

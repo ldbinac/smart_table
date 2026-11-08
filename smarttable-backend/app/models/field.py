@@ -376,8 +376,8 @@ class Field(db.Model):
         date_part = ''
         if include_date:
             from datetime import datetime
-            # 使用传入的日期或当前日期
-            use_date = record_date if record_date else datetime.now()
+            # 使用传入的日期或当前 UTC 日期（与 DB 写入的 created_at 保持一致）
+            use_date = record_date if record_date else datetime.now(timezone.utc)
             year = use_date.strftime('%Y')
             month = use_date.strftime('%m')
             day = use_date.strftime('%d')

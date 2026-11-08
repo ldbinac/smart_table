@@ -11,6 +11,7 @@ import enum
 
 from app.db_types import CompatUUID as UUID
 from app.extensions import db
+from app.utils.datetime_utils import serialize_datetime
 
 
 class SharePermission(str, enum.Enum):
@@ -130,9 +131,9 @@ class BaseShare(db.Model):
             'expires_at': self.expires_at,
             'access_count': self.access_count,
             'is_active': self.is_active,
-            'created_at': self.created_at.isoformat(),
-            'updated_at': self.updated_at.isoformat(),
-            'last_accessed_at': self.last_accessed_at.isoformat() if self.last_accessed_at else None,
+            'created_at': serialize_datetime(self.created_at),
+            'updated_at': serialize_datetime(self.updated_at),
+            'last_accessed_at': serialize_datetime(self.last_accessed_at),
             'created_by': str(self.created_by)
         }
     

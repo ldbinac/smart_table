@@ -10,6 +10,7 @@ from app.db_types import CompatUUID as UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.extensions import db
+from app.utils.datetime_utils import serialize_datetime
 
 
 class Record(db.Model):
@@ -153,8 +154,8 @@ class Record(db.Model):
         if include_meta:
             data['created_by'] = str(self.created_by) if self.created_by else None
             data['updated_by'] = str(self.updated_by) if self.updated_by else None
-            data['created_at'] = self.created_at.isoformat()
-            data['updated_at'] = self.updated_at.isoformat()
+            data['created_at'] = serialize_datetime(self.created_at)
+            data['updated_at'] = serialize_datetime(self.updated_at)
         return data
 
     def __repr__(self) -> str:
@@ -263,9 +264,9 @@ class RecordComment(db.Model):
             'content': self.content if not self.is_deleted else None,
             'parent_id': str(self.parent_id) if self.parent_id else None,
             'is_deleted': self.is_deleted,
-            'created_at': self.created_at.isoformat(),
-            'updated_at': self.updated_at.isoformat(),
-            'deleted_at': self.deleted_at.isoformat() if self.deleted_at else None
+            'created_at': serialize_datetime(self.created_at),
+            'updated_at': serialize_datetime(self.updated_at),
+            'deleted_at': serialize_datetime(self.deleted_at)
         }
         if include_user and self.user:
             data['user'] = {

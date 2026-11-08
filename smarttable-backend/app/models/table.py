@@ -9,6 +9,7 @@ from app.db_types import CompatUUID as UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.extensions import db
+from app.utils.datetime_utils import serialize_datetime
 
 
 class Table(db.Model):
@@ -133,8 +134,8 @@ class Table(db.Model):
             'order': self.order,
             'primary_field_id': str(self.primary_field_id) if self.primary_field_id else None,
             'folder_id': str(self.folder_id) if self.folder_id else None,
-            'created_at': self.created_at.isoformat(),
-            'updated_at': self.updated_at.isoformat()
+            'created_at': serialize_datetime(self.created_at),
+            'updated_at': serialize_datetime(self.updated_at)
         }
 
         if include_stats:

@@ -7,6 +7,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.extensions import db
 from app.db_types import CompatUUID as UUID, CompatJSON
+from app.utils.datetime_utils import serialize_datetime
 
 
 class CollaborationSession(db.Model):
@@ -86,8 +87,8 @@ class CollaborationSession(db.Model):
             'current_view_id': self.current_view_id,
             'current_view_type': self.current_view_type,
             'locked_cells': self.locked_cells or [],
-            'joined_at': self.joined_at.isoformat() if self.joined_at else None,
-            'last_active_at': self.last_active_at.isoformat() if self.last_active_at else None,
+            'joined_at': serialize_datetime(self.joined_at),
+            'last_active_at': serialize_datetime(self.last_active_at),
             'is_active': self.is_active
         }
 

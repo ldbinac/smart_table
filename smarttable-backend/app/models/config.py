@@ -11,6 +11,7 @@ from app.db_types import CompatUUID as UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.extensions import db
+from app.utils.datetime_utils import serialize_datetime
 
 
 class SystemConfig(db.Model):
@@ -166,8 +167,8 @@ class SystemConfig(db.Model):
             'config_value': self.config_value,
             'config_group': self.config_group,
             'description': self.description,
-            'created_at': self.created_at.isoformat(),
-            'updated_at': self.updated_at.isoformat()
+            'created_at': serialize_datetime(self.created_at),
+            'updated_at': serialize_datetime(self.updated_at)
         }
     
     def __repr__(self) -> str:

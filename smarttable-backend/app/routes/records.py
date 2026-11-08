@@ -379,8 +379,8 @@ def batch_create_records(table_id) -> tuple:
                         else:
                             final_values[field_id] = default_value
 
-            # 处理自动编号字段
-            record_created_at = datetime.now()
+            # 处理自动编号字段（使用 UTC 时间，与 DB 写入的 created_at 保持一致）
+            record_created_at = datetime.now(timezone.utc)
             for field in auto_number_fields:
                 field_id = str(field.id)
                 if field_id not in final_values or not final_values[field_id]:
