@@ -33,6 +33,7 @@ import SignatureField from "@/components/fields/SignatureField.vue";
 import { formatDateTime, formatDate } from "@/utils/timezone";
 import { useUserCacheStore } from "@/stores/userCacheStore";
 import { validateFieldFormat } from "@/utils/validation";
+import { getApiErrorMessage } from "@/utils/apiError";
 import {
   FormulaEngine,
   type FormulaError,
@@ -3215,7 +3216,7 @@ const handleRecordSave = async (
     expandedRecord.value = null;
   } catch (error) {
     console.error("Error saving record-tv:", error);
-    ElMessage.error(t("view.saveFailed"));
+    ElMessage.error(getApiErrorMessage(error, t("view.saveFailed")));
   }
 };
 
@@ -6095,10 +6096,14 @@ const bindTableEvents = () => {
           await tableStore.refreshRecords(tableId);
         } catch (error) {
           console.error('开关状态保存失败:', error);
-          ElMessage.error(t("view.toggleSaveFailed"));
+          ElMessage.error(getApiErrorMessage(error, t("view.toggleSaveFailed")));
           // 保存失败也移除待提交变更，避免残留
           if (collabStore.isRealtimeAvailable) {
             collabStore.removePendingChange(recordId, fieldId);
+          }
+          // 开关单元格由 VTable 先切换（乐观更新），失败时恢复原始勾选状态
+          if (tableId) {
+            await tableStore.refreshRecords(tableId);
           }
         } finally {
           // 协同编辑：无论保存成功与否都释放编辑锁，防止锁泄漏导致后续无法编辑
@@ -6697,10 +6702,16 @@ const bindTableEvents = () => {
       ElMessage.success(t("view.editSavedSuccess"));
     } catch (error) {
       console.error('编辑保存失败:', error);
-      ElMessage.error(t("view.editSaveFailed"));
+      ElMessage.error(getApiErrorMessage(error, t("view.editSaveFailed")));
       // 保存失败也移除待提交变更，避免残留
       if (collabStore.isRealtimeAvailable) {
         collabStore.removePendingChange(recordId, fieldId);
+      }
+      // VTable 在 change_cell_value 时已把新值写入内部数据源（乐观更新），
+      // 保存失败须从本地缓存重新加载，把单元格恢复为保存前的值，
+      // 否则用户会误以为修改已生效。
+      if (tableId) {
+        await tableStore.refreshRecords(tableId);
       }
     }
   });
@@ -6805,7 +6816,7 @@ const bindTableEvents = () => {
             ElMessage.success(t("view.hierarchyUpdated"));
           } catch (error) {
             console.error("拖拽更新层级失败:", error);
-            ElMessage.error(t("view.dragUpdateFailed"));
+            ElMessage.error(getApiErrorMessage(error, t("view.dragUpdateFailed")));
           }
         }
       }
@@ -7575,7 +7586,7 @@ async function handleAttachmentUpdate(value: any) {
     ElMessage.success(t("view.attachmentSaved"));
   } catch (error) {
     console.error('附件保存失败:', error);
-    ElMessage.error(t("view.attachmentSaveFailed"));
+    ElMessage.error(getApiErrorMessage(error, t("view.attachmentSaveFailed")));
     // 恢复原始值，使 AttachmentManager 重新加载为删除前的状态
     attachmentManagerInitialValue.value = originalValue;
   }
@@ -7783,7 +7794,7 @@ async function handleLinkSelectorConfirm(selectedIds: string[]) {
     await loadLinkDisplayData();
   } catch (error) {
     console.error('更新关联字段失败:', error);
-    ElMessage.error(t("view.linkFieldUpdateFailed"));
+    ElMessage.error(getApiErrorMessage(error, t("view.linkFieldUpdateFailed")));
   }
 
   linkSelectorVisible.value = false;
@@ -7874,7 +7885,7 @@ async function handleSubTableUnlink(targetRecordId: string) {
   } catch (error) {
     if (error !== 'cancel' && error !== 'close') {
       console.error('[VTableView] 解除关联失败:', error);
-      ElMessage.error(t("view.linkUnlinkFailed"));
+      ElMessage.error(getApiErrorMessage(error, t("view.linkUnlinkFailed")));
     }
   }
 }

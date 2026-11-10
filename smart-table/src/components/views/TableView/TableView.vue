@@ -25,6 +25,7 @@ import TableRow from "./TableRow.vue";
 import ContextMenu from "@/components/common/ContextMenu.vue";
 import { ElMessage, ElMessageBox, ElIcon } from "element-plus";
 import { isFieldRequired, isValueEmpty } from "@/utils/validation";
+import { getApiErrorMessage } from "@/utils/apiError";
 import { getSystemFieldRawValue, isSystemValueType } from "@/utils/systemFields";
 import { ZoomIn, Check } from "@element-plus/icons-vue";
 import RecordDetailDrawer from "@/components/dialogs/RecordDetailDrawer.vue";
@@ -277,7 +278,7 @@ const handleCellUpdate = async (
       return;
     } catch (error) {
       console.error("更新关联字段失败:", error);
-      ElMessage.error(t("view.linkFieldUpdateFailed"));
+      ElMessage.error(getApiErrorMessage(error, t("view.linkFieldUpdateFailed")));
       editingCell.value = null;
       return;
     }
@@ -292,8 +293,16 @@ const handleCellUpdate = async (
     ? { ...value }
     : value;
   const newValues = { ...plainValues, [fieldId]: plainValue };
-  await recordService.updateRecord(record.id, { values: newValues });
-  await tableStore.refreshRecords(record.tableId);
+  try {
+    await recordService.updateRecord(record.id, { values: newValues });
+    await tableStore.refreshRecords(record.tableId);
+  } catch (error) {
+    console.error("[TableView] 编辑保存失败:", error);
+    ElMessage.error(getApiErrorMessage(error, t("view.editSaveFailed")));
+    // 显示值来自 props.records（接口成功后才更新），失败时重新加载本地记录，
+    // 确保单元格恢复为保存前的值，避免用户误以为修改已生效。
+    await tableStore.refreshRecords(record.tableId);
+  }
   editingCell.value = null;
 };
 
