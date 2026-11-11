@@ -316,11 +316,13 @@
     "marqueeText": "📢 System Notice: Welcome to the dashboard template...",
     "category": {
       "all": "All",
+      "销售": "Sales",
       "运营": "Operations & Marketing",
       "财务": "Sales & Finance",
       "项目管理": "Project Management",
       "人力资源": "Human Resources",
       "客户服务": "Customer Service",
+      "营销": "Marketing",
       "IT运维": "IT Operations",
       "生产": "Manufacturing",
       "自定义": "Custom",

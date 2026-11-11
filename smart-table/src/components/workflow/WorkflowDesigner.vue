@@ -277,13 +277,13 @@ function validateNodeMappings(nodes: WorkflowNode[]): MappingValidationResult {
       const config = node.config || {};
       const sources = (config.recipient_sources ?? []) as string[];
       if (!sources.length) {
-        invalidNodes.push({ name: node.name, reason: t('workflow.validation.notifyRecipientSourceNotConfigured') });
+        invalidNodes.push({ name: node.name, reason: t('workflow.nodeConfig.validation.notifyRecipientSourceNotConfigured') });
       } else if (sources.includes('fixed') && !(config.recipient_user_ids as unknown[])?.length) {
-        invalidNodes.push({ name: node.name, reason: t('workflow.validation.notifyFixedMembersNotConfigured') });
+        invalidNodes.push({ name: node.name, reason: t('workflow.nodeConfig.validation.notifyFixedMembersNotConfigured') });
       } else if (sources.includes('field') && !(config.recipient_field_ids as unknown[])?.length) {
-        invalidNodes.push({ name: node.name, reason: t('workflow.validation.notifyMemberFieldsNotConfigured') });
+        invalidNodes.push({ name: node.name, reason: t('workflow.nodeConfig.validation.notifyMemberFieldsNotConfigured') });
       } else if (!String(config.subject ?? '').trim()) {
-        invalidNodes.push({ name: node.name, reason: t('workflow.validation.notifyTitleNotConfigured') });
+        invalidNodes.push({ name: node.name, reason: t('workflow.nodeConfig.validation.notifyTitleNotConfigured') });
       }
     }
   });
