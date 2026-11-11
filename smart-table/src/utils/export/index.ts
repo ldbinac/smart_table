@@ -38,6 +38,10 @@ export interface ImportResult {
   totalRows: number;
 }
 
+// 关联显示名的合并/去重逻辑由通用模块提供，表格视图与选择器共用同一套规则。
+export { buildLinkDisplayMap } from "@/utils/linkDisplay";
+export type { ExportLinkGroup, ExportRecordLinks } from "@/utils/linkDisplay";
+
 // 从公式字段取原始计算值（JSON 导出作为数据交换使用原始值）
 // 优先后端预计算结果，缺失时回退前端计算（与表格视图一致）
 function getFormulaComputedValues(

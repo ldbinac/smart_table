@@ -176,6 +176,7 @@ import { tableService } from "@/db/services/tableService";
 import type { LinkedRecord } from "@/types/link";
 import type { FieldEntity } from "@/db/schema";
 import { FieldType } from "@/types/fields";
+import { formatLinkCellValue, isRawRecordIdDisplay } from "@/utils/linkDisplay";
 import { debounce } from "lodash-es";
 
 const { t } = useI18n();
@@ -289,13 +290,14 @@ const initSelectedRecords = () => {
 
     for (const id of uniqueIds) {
       const linked = linkedRecordMap.get(id);
-      const displayVal = linked?.display_value || id;
-      selectedRecords.value.push({
-        id,
-        values: {
-          [props.displayFieldId || '']: displayVal,
-        },
-      });
+      const displayVal = linked?.display_value;
+      // 显示名缺失（或后端用记录 ID 兜底）时留空，由后续加载补齐；
+      // 绝不把 UUID 写进 values，否则已选标签会直接显示 ID。
+      const values: Record<string, unknown> = {};
+      if (displayVal && props.displayFieldId && !isRawRecordIdDisplay(displayVal, id)) {
+        values[props.displayFieldId] = displayVal;
+      }
+      selectedRecords.value.push({ id, values });
     }
   }
 };
@@ -320,7 +322,9 @@ const refreshSelectedFromLoadedRecords = async () => {
   }
 
   // 对因 exclude_ids 而缺失的已选记录，单独获取显示值
-  if (missingIds.length > 0 && props.targetTableId && props.displayFieldId) {
+  // 反向关联字段可能没有 displayFieldId；补值只依赖目标表，
+  // 补齐后由 getDisplayValue 依次尝试展示字段，因此不能把它作为前置条件。
+  if (missingIds.length > 0 && props.targetTableId) {
     try {
       const result = await linkApiService.searchLinkableRecords(
         props.targetTableId,
@@ -411,6 +415,20 @@ const formatValueForDisplay = (value: unknown, field?: DisplayField): string => 
   return String(value);
 };
 
+/** 关联字段配置可能在 config（后端）或 options（前端离线创建路径）中 */
+const getLinkFieldConfigValue = (
+  field: DisplayField,
+  camelKey: string,
+  snakeKey: string,
+): string | undefined => {
+  for (const storage of [field.config, field.options]) {
+    if (!storage) continue;
+    const value = storage[camelKey] ?? storage[snakeKey];
+    if (typeof value === "string" && value) return value;
+  }
+  return undefined;
+};
+
 const preloadLinkFieldDisplayMaps = async () => {
   const newMap = new Map<string, Map<string, string>>();
   const linkFields = displayFields.value.filter(f => f.type === FieldType.LINK || f.type === 'link_to_record');
@@ -423,7 +441,7 @@ const preloadLinkFieldDisplayMaps = async () => {
   // 预加载所有关联表的字段信息（用于格式化单选/多选等字段）
   const linkedTableFieldsMap = new Map<string, DisplayField[]>();
   for (const field of linkFields) {
-    const linkedTableId = field.config?.linkedTableId as string | undefined;
+    const linkedTableId = getLinkFieldConfigValue(field, 'linkedTableId', 'linked_table_id');
     if (!linkedTableId || linkedTableFieldsMap.has(linkedTableId)) continue;
     try {
       const fields = await fieldCacheService.getFieldsWithCache(linkedTableId, false, props.shareToken);
@@ -440,8 +458,8 @@ const preloadLinkFieldDisplayMaps = async () => {
   }
 
   for (const field of linkFields) {
-    const linkedTableId = field.config?.linkedTableId as string | undefined;
-    let displayFieldId = field.config?.displayFieldId as string | undefined;
+    const linkedTableId = getLinkFieldConfigValue(field, 'linkedTableId', 'linked_table_id');
+    let displayFieldId = getLinkFieldConfigValue(field, 'displayFieldId', 'display_field_id');
     if (!linkedTableId) continue;
 
     // 如果未配置显示字段，回退到关联表的主字段
@@ -491,17 +509,9 @@ const preloadLinkFieldDisplayMaps = async () => {
           fieldMap.set(item.id, displayVal || item.id);
         }
       }
-      // 未匹配到的记录仍显示 ID
-      for (const lid of linkedIds) {
-        if (!fieldMap.has(lid)) {
-          fieldMap.set(lid, lid);
-        }
-      }
-    } catch {
-      // 失败时保持使用 ID 作为显示值
-      for (const lid of linkedIds) {
-        fieldMap.set(lid, lid);
-      }
+      // 未匹配到的记录不写入 ID 兜底：无法解析时显示占位，而不是裸 UUID
+    } catch (error) {
+      console.warn('[LinkRecordSelector] 解析关联字段显示值失败:', field.id, error);
     }
   }
 
@@ -568,37 +578,53 @@ watch(
   { deep: true }
 );
 
+// 搜索/翻页会替换 records，必须同步刷新关联字段的 ID→显示名映射，
+// 否则新一页的关联列会退回显示裸 UUID。
+const reloadRecordsWithLinkDisplays = async () => {
+  await loadRecords();
+  await preloadLinkFieldDisplayMaps();
+};
+
 const handleSearch = debounce(() => {
   currentPage.value = 1;
-  loadRecords();
+  reloadRecordsWithLinkDisplays();
 }, 300);
 
 const handlePageChange = () => {
-  loadRecords();
+  reloadRecordsWithLinkDisplays();
 };
 
 const getDisplayValue = (record: { id: string; values: Record<string, unknown> }): string => {
-  // 优先使用 displayFieldId 获取显示值（带字段类型感知）
-  if (props.displayFieldId && record.values[props.displayFieldId] !== undefined && record.values[props.displayFieldId] !== null && record.values[props.displayFieldId] !== "") {
-    return getFormattedFieldValue(record, props.displayFieldId);
+  // 优先使用配置的展示字段，再依次尝试关联表的显示字段（带字段类型感知）
+  const tryField = (fieldId: string): string | null => {
+    const rawVal = record.values[fieldId];
+    if (rawVal === undefined || rawVal === null || rawVal === "") return null;
+    if (isRawRecordIdDisplay(rawVal, record.id)) return null;
+    const formatted = getFormattedFieldValue(record, fieldId);
+    if (!formatted || formatted === "-" || isRawRecordIdDisplay(formatted, record.id)) return null;
+    return formatted;
+  };
+
+  if (props.displayFieldId) {
+    const value = tryField(props.displayFieldId);
+    if (value) return value;
   }
-  // 使用第一个显示字段
-  if (displayFields.value.length > 0) {
-    const firstField = displayFields.value[0];
-    const rawVal = record.values[firstField.id];
-    if (rawVal !== undefined && rawVal !== null && rawVal !== "") {
-      return getFormattedFieldValue(record, firstField.id);
+  for (const field of displayFields.value) {
+    const value = tryField(field.id);
+    if (value) return value;
+  }
+
+  // 兜底：取第一个非空的、不是记录 ID 的标量值
+  for (const val of Object.values(record.values)) {
+    if (val === null || val === undefined || val === "") continue;
+    if (typeof val === "object") {
+      if (val !== null && "name" in val) return String((val as { name: unknown }).name);
+      continue;
     }
+    if (isRawRecordIdDisplay(val, record.id)) continue;
+    return String(val);
   }
-  const values = Object.values(record.values);
-  if (values.length > 0) {
-    const first = values[0];
-    if (typeof first === "object" && first !== null && "name" in first) {
-      return (first as { name: string }).name;
-    }
-    return String(first ?? "");
-  }
-  return record.id;
+  return t('link.noTitle');
 };
 
 /** 按字段类型格式化值（供 getDisplayValue / getFieldValue 复用） */
@@ -633,15 +659,10 @@ const getFormattedFieldValue = (record: { id: string; values: Record<string, unk
     }
   }
 
-  // LINK
+  // LINK：只输出成功解析的显示名，解析不到时显示占位，绝不暴露裸 UUID
   if (field?.type === FieldType.LINK || field?.type === 'link_to_record') {
-    const fieldMap = linkFieldDisplayMaps.value.get(fieldId);
-    if (Array.isArray(value) && fieldMap) {
-      return value.map(v => fieldMap.get(String(v)) ?? String(v)).join(", ");
-    }
-    if (typeof value === "string" && fieldMap) {
-      return fieldMap.get(value) ?? value;
-    }
+    const display = formatLinkCellValue(value, linkFieldDisplayMaps.value.get(fieldId));
+    return display || "-";
   }
 
   return String(value ?? "");

@@ -5,6 +5,7 @@
 使用 Redis 缓存优化性能
 """
 import json
+import re
 import uuid
 from typing import List, Optional, Dict, Any, Tuple
 from datetime import datetime, timezone
@@ -730,6 +731,24 @@ class LinkService:
             unmatched_counter: Dict[str, int] = {}
             skipped_count = 0
 
+            def _match_keys(raw_value):
+                """把导出的单元格值解析为待匹配的显示名称列表。
+
+                关联字段导出格式是 ", " 分隔的显示名称（一对多），历史版本还会
+                把双向关联重复导出成「苹果, 苹果」。优先整串精确匹配，避免把
+                名称本身含逗号的记录误拆；整串匹配不到时再按中英文逗号拆分，
+                并去重以兼容历史重复值。
+                """
+                key = str(raw_value).strip() if raw_value is not None else ''
+                if not key:
+                    return []
+                if key in value_map:
+                    return [key]
+                parts = [part.strip() for part in re.split(r'[,，]', key) if part.strip()]
+                if len(parts) <= 1:
+                    return [key]
+                return list(dict.fromkeys(parts))
+
             for p in pairs:
                 src = str(p.get('record_id') or '')
                 raw_value = p.get('value')
@@ -737,16 +756,17 @@ class LinkService:
                 if not src or src not in valid_source_ids or not key:
                     skipped_count += 1
                     continue
-                target_id = value_map.get(key)
-                if not target_id:
-                    unmatched_counter[key] = unmatched_counter.get(key, 0) + 1
-                    continue
-                bucket = matched.setdefault(src, [])
-                if one_to_one and bucket:
-                    skipped_count += 1
-                    continue
-                if target_id not in bucket:
-                    bucket.append(target_id)
+                for match_key in _match_keys(raw_value):
+                    target_id = value_map.get(match_key)
+                    if not target_id:
+                        unmatched_counter[match_key] = unmatched_counter.get(match_key, 0) + 1
+                        continue
+                    bucket = matched.setdefault(src, [])
+                    if one_to_one and bucket:
+                        skipped_count += 1
+                        continue
+                    if target_id not in bucket:
+                        bucket.append(target_id)
 
             # 6. 过滤已存在的关联
             all_new = [(src, tid) for src, tids in matched.items() for tid in tids]
@@ -1134,6 +1154,10 @@ class LinkService:
             result = {}
             # 字段缓存，避免 N+1 查询
             field_cache = {}
+            # 双向关联会在正反两个方向各存一条互为镜像的 LinkValue，
+            # 且两条都归属同一个字段。按 (field_id, 关联记录 ID) 去重，
+            # 避免上层（表格单元格、导出、打印）把一条关联当成两条。
+            seen_links: Dict[str, set] = {}
 
             # 作为源记录的关联
             source_links = db.session.execute(
@@ -1149,6 +1173,7 @@ class LinkService:
                 field_id = str(link_relation.source_field_id)
                 if field_id not in result:
                     result[field_id] = []
+                seen_links.setdefault(field_id, set()).add(str(link_value.target_record_id))
                 
                 # 获取显示值 - 使用关联字段配置中的 displayFieldId
                 display_value = LinkService._get_link_display_value(
@@ -1181,6 +1206,13 @@ class LinkService:
             for link_value, link_relation in target_links:
                 if link_relation.target_field_id:
                     field_id = str(link_relation.target_field_id)
+                    linked_record_id = str(link_value.source_record_id)
+                    # 双向关联的反向 LinkValue 与正向 LinkValue 互为镜像：
+                    # 同一字段已关联同一记录时只保留正向那条（outgoing）。
+                    seen = seen_links.setdefault(field_id, set())
+                    if linked_record_id in seen:
+                        continue
+                    seen.add(linked_record_id)
                     if field_id not in result:
                         result[field_id] = []
                     
@@ -1366,19 +1398,37 @@ class LinkService:
 
                     display_field_id = _get_display_field_id(inverse_field)
                     if display_field_id:
-                        display_value = target_record.values.get(str(display_field_id))
-                        formatted = _format_display_value(display_field_id, display_value)
-                        if formatted is not None:
-                            return formatted
+                        inverse_display_field = db.session.get(Field, display_field_id)
+                        # inverseField 位于对端表，它的 displayFieldId 指向对端表的字段。
+                        # 只有该字段确实属于当前目标记录所在表时才能用它取值，
+                        # 否则会取不到值并落到「values 第一个标量」的错误回退。
+                        if inverse_display_field and str(inverse_display_field.table_id) == str(target_record.table_id):
+                            display_value = target_record.values.get(str(display_field_id))
+                            formatted = _format_display_value(display_field_id, display_value)
+                            if formatted is not None:
+                                return formatted
             
-            # 尝试获取目标记录的第一个有意义的字段值
+            # 没有可用的 displayFieldId 时优先使用主字段。旧实现先返回 values 里的
+            # 第一个标量，会把内部 UUID（如关联字段 ID）当成显示名泄漏到界面与导出。
+            primary_value = target_record.get_primary_value()
+            if primary_value is not None and str(primary_value).strip() and str(primary_value) != '未命名记录':
+                return str(primary_value)
+
+            def _looks_like_record_id(v):
+                try:
+                    uuid.UUID(str(v))
+                    return True
+                except (ValueError, TypeError, AttributeError):
+                    return False
+
             if target_record.values:
                 for val in target_record.values.values():
-                    if val is not None and val != '' and not isinstance(val, list) and not isinstance(val, dict):
-                        return str(val)
-            
-            # 如果没有配置 displayFieldId 或 displayFieldId 没有值，使用主字段
-            return target_record.get_primary_value()
+                    if val is None or val == '' or isinstance(val, (list, dict)):
+                        continue
+                    if _looks_like_record_id(val):
+                        continue
+                    return str(val)
+            return str(primary_value) if primary_value else '未命名记录'
         except Exception as e:
             current_app.logger.error(f'[LinkService] 获取显示值失败: {str(e)}')
             return '未命名记录'
@@ -1612,6 +1662,22 @@ class LinkService:
                 source_table_name = source_table.name if source_table else '源表'
                 # 反向关联字段默认使用源表主字段作为显示字段，避免显示关联记录 ID
                 inverse_display_field_id = str(source_table.primary_field_id) if source_table.primary_field_id else None
+                if not inverse_display_field_id:
+                    # 源表未维护 primary_field_id 时回退到第一个可展示字段，
+                    # 否则反向字段没有 displayFieldId，水果表侧会显示记录 ID。
+                    candidates = db.session.execute(
+                        select(Field).where(Field.table_id == str(table_id)).order_by(Field.order)
+                    ).scalars().all()
+                    excluded_types = {
+                        FieldType.LINK_TO_RECORD.value, FieldType.LINK.value,
+                        FieldType.LOOKUP.value, FieldType.ATTACHMENT.value,
+                        FieldType.FORMULA.value,
+                    }
+                    for candidate in candidates:
+                        if candidate.type in excluded_types:
+                            continue
+                        inverse_display_field_id = str(candidate.id)
+                        break
                 inverse_field_data = {
                     'name': translate('inverse_link_field_name', table=source_table_name),
                     'type': FieldType.LINK_TO_RECORD.value,

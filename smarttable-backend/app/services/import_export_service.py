@@ -503,10 +503,21 @@ class ImportExportService:
     def _is_link_type(field) -> bool:
         """判断字段是否为关联记录类型（兼容 link / link_to_record 两种存储值）"""
         try:
-            ft = FieldType(field.type)
-        except ValueError:
-            ft = str(field.type)
+            # FieldType 是普通 Enum，成员与 .value 字符串不相等，必须显式取 value，
+            # 否则关联字段的导出格式化逻辑会被整体跳过，导出成记录 ID 列表。
+            ft = FieldType(field.type).value
+        except (ValueError, TypeError, AttributeError):
+            ft = str(getattr(field, 'type', field))
         return ft in (FieldType.LINK_TO_RECORD.value, FieldType.LINK.value)
+
+    @staticmethod
+    def _is_record_id(value: Any) -> bool:
+        """判断值是否为合法的记录 ID（项目统一使用 UUID）"""
+        try:
+            uuid.UUID(str(value))
+            return True
+        except (ValueError, TypeError, AttributeError):
+            return False
 
     @classmethod
     def _prepare_export_data(cls, table_id: str,
@@ -574,14 +585,19 @@ class ImportExportService:
                 for field in link_fields:
                     fid = str(field.id)
                     ids: set = set()
-                    # 主来源：record.values 中存储的关联记录 ID 列表
+                    # 主来源：record.values 中存储的关联记录 ID 列表。
+                    # 统一转成字符串并过滤非法 ID：历史导入会把「苹果, 苹果」这类
+                    # 显示文本写进 values，混进来会与解析出的显示名重复导出。
                     raw = record.values.get(fid)
                     if raw:
-                        ids.update(raw if isinstance(raw, list) else [raw])
+                        candidates = raw if isinstance(raw, list) else [raw]
+                        ids.update(
+                            str(v) for v in candidates if cls._is_record_id(v)
+                        )
                     # 补充来源：LinkValue 表（含双向反向关联，可能不在 record.values 中）
                     lm_ids = (link_map.get(rec_id) or {}).get(fid)
                     if lm_ids:
-                        ids.update(lm_ids)
+                        ids.update(str(v) for v in lm_ids)
                     if ids:
                         link_id_collections[(rec_id, fid)] = list(ids)
                         all_target_ids.update(ids)
@@ -629,16 +645,23 @@ class ImportExportService:
             linked_ids = [linked_ids]
 
         display_values = []
+        fallback_values = []
         for rid in linked_ids:
             rid = str(rid)
             target = record_cache.get(rid)
             if target is None:
                 # 关联记录已被删除等情况下，退化为显示 ID
-                display_values.append(rid)
+                fallback_values.append(rid)
             else:
                 display_values.append(
                     LinkService._get_link_display_value(target, str(field.id), field_cache)
                 )
+        # 兜底值若与已解析的显示名重复（例如历史导入残留的显示文本），
+        # 不再重复输出，避免导出「苹果, 苹果」。
+        resolved = set(display_values)
+        for value in dict.fromkeys(fallback_values):
+            if value not in resolved:
+                display_values.append(value)
         return ', '.join(display_values)
 
     @classmethod
@@ -760,7 +783,12 @@ class ImportExportService:
             return None
         
         field_type = FieldType(field.type)
-        
+
+        # 关联记录字段：单元格里是显示名称文本，导入后需通过按值批量匹配建立关联。
+        # 不能写入 record.values，否则显示文本会被当成记录 ID，再次导出时重复。
+        if field_type in (FieldType.LINK_TO_RECORD, FieldType.LINK):
+            return []
+
         # 数字类型
         if field_type in (FieldType.NUMBER, FieldType.CURRENCY, FieldType.PERCENT, FieldType.RATING):
             try:

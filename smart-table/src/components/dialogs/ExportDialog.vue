@@ -2,7 +2,7 @@
 import { ref, computed } from 'vue'
 import { ElDialog, ElButton, ElRadioGroup, ElRadio, ElCheckbox, ElCheckboxGroup, ElMessage } from 'element-plus'
 import { useI18n } from 'vue-i18n'
-import { exportToExcel, exportToCSV, exportToJSON, type ExportContext } from '@/utils/export'
+import { exportToExcel, exportToCSV, exportToJSON, buildLinkDisplayMap, type ExportContext } from '@/utils/export'
 import type { FieldEntity, RecordEntity } from '@/db/schema'
 import { FieldType } from '@/types'
 import { getSystemFieldRawValue } from '@/utils/systemFields'
@@ -105,25 +105,9 @@ async function handleExport() {
       const batch = await linkApiService.getRecordLinksBatch(
         recordsToExport.map((r) => r.id),
       )
-      const linkDisplayMap = new Map<string, Map<string, string[]>>()
-      for (const [recId, links] of Object.entries(batch)) {
-        const fieldMap = new Map<string, string[]>()
-        const collect = (list: Array<{ field_id: string; linked_records?: Array<{ display_value?: string }> }>) => {
-          for (const item of list || []) {
-            const arr = fieldMap.get(item.field_id) || []
-            for (const lr of item.linked_records || []) {
-              if (lr?.display_value != null && lr.display_value !== '') {
-                arr.push(String(lr.display_value))
-              }
-            }
-            fieldMap.set(item.field_id, arr)
-          }
-        }
-        collect(links.outbound)
-        collect(links.inbound)
-        linkDisplayMap.set(recId, fieldMap)
-      }
-      context.linkDisplayMap = linkDisplayMap
+      // 双向关联的 outgoing / incoming 互为镜像，构建映射时按记录 ID 去重，
+      // 避免把一条关联导出成「苹果, 苹果」而无法直接重新导入。
+      context.linkDisplayMap = buildLinkDisplayMap(batch)
     }
 
     switch (exportFormat.value) {

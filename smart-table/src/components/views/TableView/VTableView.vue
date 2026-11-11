@@ -43,6 +43,10 @@ import { formatFormulaDateByConfig } from "@/utils/formula/formatFormula";
 import { formatNumberField } from "@/utils/numberFormat";
 import { getSystemFieldDisplayValue } from "@/utils/systemFields";
 import { linkApiService } from "@/services/api/linkApiService";
+import {
+  collectLinkDisplayRecords,
+  type RecordLinksData,
+} from "@/utils/linkDisplay";
 import { viewApiService } from "@/services/api/viewApiService";
 import { recordApiService } from "@/services/api/recordApiService";
 import { attachmentService } from "@/db/services";
@@ -6491,22 +6495,24 @@ const bindTableEvents = () => {
         linkSelectorAllowMultiple.value = allowMultiple;
         linkSelectorExcludeRecordId.value = isSelfLink ? recordId : '';
 
-        // 构建 linkedRecords：从缓存中获取已选记录的 display_value
-        const linkedRecords: { record_id: string; display_value: string }[] = [];
-        if (currentIds.length > 0) {
-          const cacheKey = `${recordId}:${field.id}`;
-          const cachedDVs = linkDisplayCache[cacheKey] || [];
-          // 先按缓存顺序配对（缓存是从 API response 按序提取的）
-          // 再对未在缓存中的 ID 使用 ID 本身作为回退
-          for (let i = 0; i < currentIds.length; i++) {
-            const id = currentIds[i];
-            linkedRecords.push({
-              record_id: id,
-              display_value: cachedDVs[i] || id,
+        // 已选显示名必须按 record_id 精确配对（缓存数组顺序与 record.values 不保证一致），
+        // 且绝不能把记录 ID 当成显示名。该接口带前端缓存，命中批量请求结果时无额外开销。
+        linkSelectorLinkedRecords.value = [];
+        if (currentIds.length > 0 && recordId) {
+          linkApiService.getRecordLinks(recordId)
+            .then((links) => {
+              const byId = new Map(
+                collectLinkDisplayRecords(links, field.id).map(r => [r.record_id, r.display_value]),
+              );
+              linkSelectorLinkedRecords.value = currentIds.map(id => ({
+                record_id: id,
+                display_value: byId.get(id) || '',
+              }));
+            })
+            .catch(() => {
+              // 加载失败时保持空显示值，由选择器展示占位文案，避免暴露裸 UUID
             });
-          }
         }
-        linkSelectorLinkedRecords.value = linkedRecords;
 
         linkSelectorVisible.value = true;
         return;
@@ -7687,7 +7693,7 @@ async function loadLinkDisplayData() {
   try {
     for (let i = 0; i < recordIds.length; i += BATCH_SIZE) {
       const batch = recordIds.slice(i, i + BATCH_SIZE);
-      let batchLinks: Record<string, { outbound: Array<{ field_id: string; linked_records: Array<{ display_value: string }> }> }> = {};
+      let batchLinks: Record<string, RecordLinksData | undefined> = {};
 
       try {
         batchLinks = await linkApiService.getRecordLinksBatch(batch);
@@ -7708,13 +7714,10 @@ async function loadLinkDisplayData() {
         // 遍历该记录下需要加载的 LINK 字段
         for (const n of pendingByRecord.get(recordId) || []) {
           const key = `${recordId}:${n.fieldId}`;
-          // 从 outbound 中找到匹配的字段
-          const outbound = linkData?.outbound?.find(o => o.field_id === n.fieldId);
-          if (outbound && outbound.linked_records.length > 0) {
-            linkDisplayCache[key] = outbound.linked_records.map(lr => lr.display_value);
-          } else {
-            linkDisplayCache[key] = [];
-          }
+          // 反向双向关联经常只以 incoming 返回；合并两个方向并按记录 ID 去重，
+          // 否则水果表反向字段拿不到显示名，单元格会退化成「关联 N 条」。
+          linkDisplayCache[key] = collectLinkDisplayRecords(linkData, n.fieldId)
+            .map(r => r.display_value);
           linkLoadingStates[key] = false;
         }
       }
