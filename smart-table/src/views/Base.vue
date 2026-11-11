@@ -95,6 +95,23 @@ const vtableViewRef = shallowRef<{
   getSelection?: () => SelectionSummary | null;
 } | null>(null);
 
+interface TableSelectionSummary {
+  cellCount: number;
+  fields: {
+    id: string;
+    name: string;
+    sum: number;
+    avg: number;
+    count: number;
+    formattedSum: string;
+    formattedAvg: string;
+  }[];
+}
+
+// 选中记录的数值字段求和摘要（由 VTableView 通过 selection-summary-change 事件推送），
+// 展示在底部状态栏
+const tableSelectionSummary = ref<TableSelectionSummary | null>(null);
+
 // 插件体系：把 VTable 的勾选状态暴露给插件（惰性读取 ref，切换表格/卸载后自动降级为 null）
 registerSelectionProvider({
   getSelection: () => vtableViewRef.value?.getSelection?.() ?? null,
@@ -2506,7 +2523,8 @@ const handleDocumentExportPdf = async () => {
               @record-select="handleRecordSelect"
               @records-select="handleRecordsSelect"
               @add-record="handleAddRecord"
-              @group-add-record="handleVTableGroupAddRecord" />
+              @group-add-record="handleVTableGroupAddRecord"
+              @selection-summary-change="tableSelectionSummary = $event" />
 
             <!-- 看板视图 -->
             <KanbanView
@@ -2614,6 +2632,23 @@ const handleDocumentExportPdf = async () => {
                 :icon="Clock"
                 @click="showTableHistory = true" />
             </el-tooltip>
+            <!-- 选中单元格范围数值求和（类 Excel）：显示在记录条数与历史按钮之后同一行 -->
+            <span
+              v-if="tableSelectionSummary"
+              class="selection-summary">
+              <span class="summary-count">
+                {{ t('view.selectedCells', { count: tableSelectionSummary.cellCount }) }}
+              </span>
+              <span
+                v-for="item in tableSelectionSummary.fields"
+                :key="item.id"
+                class="summary-item"
+                :title="item.name">
+                <span class="summary-field-name">{{ item.name }}</span>
+                <span class="summary-value">Σ {{ item.formattedSum }}</span>
+                <span class="summary-avg">均值 {{ item.formattedAvg }}</span>
+              </span>
+            </span>
           </div>
 
           <!-- 表格历史变更弹窗 -->
@@ -3551,6 +3586,50 @@ const handleDocumentExportPdf = async () => {
 
   .history-btn {
     margin-left: auto;
+  }
+
+  // 选中记录数值字段求和（类 Excel）：位于历史按钮之后，保持一点间距
+  .selection-summary {
+    display: inline-flex;
+    align-items: center;
+    gap: $spacing-md;
+    margin-left: $spacing-md;
+    min-width: 0;
+    max-width: 55%;
+    overflow-x: auto;
+    white-space: nowrap;
+
+    .summary-count {
+      font-weight: 600;
+      color: $text-secondary;
+      background-color: $gray-100;
+      padding: $spacing-xs $spacing-sm;
+      border-radius: $border-radius-md;
+    }
+
+    .summary-item {
+      display: inline-flex;
+      align-items: baseline;
+      gap: $spacing-xs;
+    }
+
+    .summary-field-name {
+      color: $text-secondary;
+    }
+
+    .summary-value {
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .summary-avg {
+      color: $text-secondary;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .summary-empty {
+      color: $text-secondary;
+    }
   }
 
   .record-count {

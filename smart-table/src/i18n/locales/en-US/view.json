@@ -197,6 +197,7 @@
   "duplicateFailed": "Failed to duplicate record",
   "deleteFailed": "Failed to delete record",
   "recordsDeleted": "Successfully deleted {count} records",
+  "selectedCells": "Selected {count} cells",
   "alreadyTopLevel": "This record is already at the top level and cannot be promoted",
   "parentNotFound": "Parent record not found",
   "levelPromoted": "Level promoted",

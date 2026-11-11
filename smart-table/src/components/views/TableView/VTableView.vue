@@ -40,7 +40,7 @@ import {
   type FormulaTableContext,
 } from "@/utils/formula/engine";
 import { formatFormulaDateByConfig } from "@/utils/formula/formatFormula";
-import { formatNumberField } from "@/utils/numberFormat";
+import { formatNumberField, type NumberFormatOptions } from "@/utils/numberFormat";
 import { getSystemFieldDisplayValue } from "@/utils/systemFields";
 import { linkApiService } from "@/services/api/linkApiService";
 import {
@@ -107,6 +107,7 @@ const emit = defineEmits<{
   (e: "record-update", record: RecordEntity): void;
   (e: "record-create"): void;
   (e: "record-delete", recordIds: string[]): void;
+  (e: "selection-summary-change", summary: TableSelectionSummaryValue | null): void;
   (e: "add-record"): void;
   (e: "group-add-record", groupFieldValues: Record<string, any>): void;
 }>();
@@ -2421,6 +2422,229 @@ const selectedRecordIds = computed(() => {
   checkboxSelectedRows.value.forEach(id => { if (id) recordIdSet.add(id); });
   return Array.from(recordIdSet);
 });
+
+// 选中单元格范围求和（类 Excel 交互）：拖动鼠标左键框选一片数值单元格时，
+// 实时统计各数值列的合计/均值，推送到底部状态栏展示
+interface TableSelectionSummaryValue {
+  cellCount: number; // 选中单元格总数
+  fields: {
+    id: string;
+    name: string;
+    sum: number;
+    avg: number;
+    count: number; // 该列被选中且为数值的单元格数
+    formattedSum: string;
+    formattedAvg: string;
+  }[];
+}
+
+const selectionSummary = ref<TableSelectionSummaryValue | null>(null);
+
+/** 由列索引解析对应字段：首选 orderedVisibleFields[col-1]（与 click_cell 验证过的列映射一致：col 0=序号/复选框，col 1=首数据列），getHeaderField 仅作回退 */
+function fieldForCell(col: number): FieldEntity | undefined {
+  if (typeof col !== 'number') return undefined;
+  const byIndex = orderedVisibleFields.value[col - 1];
+  if (byIndex) return byIndex;
+  try {
+    const fieldId = (tableInstance as any)?.getHeaderField?.(col)?.field;
+    if (fieldId) return orderedVisibleFields.value.find((f) => f.id === fieldId);
+  } catch {
+    /* ignore */
+  }
+  return undefined;
+}
+
+/** 读取单元格原始值：与 click_cell 取值方式一致（兼容 values / 顶层字段 / _originalRecord.values 多种存储形态） */
+function getCellRawValue(record: any, fieldId: string): any {
+  if (!record || !fieldId) return undefined;
+  if (record.values && record.values[fieldId] !== undefined) return record.values[fieldId];
+  if (record[fieldId] !== undefined) return record[fieldId];
+  if (record._originalRecord?.values && record._originalRecord.values[fieldId] !== undefined)
+    return record._originalRecord.values[fieldId];
+  return undefined;
+}
+
+/** 将一组 {col,row,record} 单元格转为各数值列的合计/均值 */
+function computeSummaryFromCellList(cellList: { col: number; row?: number; record: any }[] | null): TableSelectionSummaryValue | null {
+  if (!cellList || cellList.length === 0) return null;
+
+  const sums: Record<string, number> = {};
+  const counts: Record<string, number> = {};
+  const fieldMap: Record<string, FieldEntity> = {};
+  let valuedCells = 0;
+
+  for (const { col, record } of cellList) {
+    // 仅对真实数据记录求和（跳过表头/新增行：无 _recordId 或为 addButton）
+    if (!record || !record._recordId || record._rowType === 'addButton') continue;
+    const field = fieldForCell(col);
+    if (!field || !NUMERIC_FIELD_TYPES.has(field.type as FieldTypeValue)) continue;
+    const raw = getCellRawValue(record, field.id);
+    if (raw === null || raw === undefined || raw === '') continue;
+    const n = Number(raw);
+    if (Number.isNaN(n)) continue;
+    if (!sums[field.id]) {
+      sums[field.id] = 0;
+      counts[field.id] = 0;
+      fieldMap[field.id] = field;
+    }
+    sums[field.id] += n;
+    counts[field.id] += 1;
+    valuedCells++;
+  }
+
+  // 字段按可见顺序输出
+  const fieldIds = orderedVisibleFields.value.map((f) => f.id).filter((id) => fieldMap[id]);
+  const fields = fieldIds.map((id) => {
+    const f = fieldMap[id];
+    const opts = (f.options || {}) as NumberFormatOptions;
+    const formatOpts: NumberFormatOptions = { ...opts };
+    if (f.type === FieldType.CURRENCY) {
+      formatOpts.format = 'currency';
+      if (formatOpts.precision === undefined) formatOpts.precision = 2;
+    } else if (f.type === FieldType.PERCENT) {
+      formatOpts.format = 'percent';
+      if (formatOpts.precision === undefined) formatOpts.precision = 2;
+    } else {
+      formatOpts.format = 'number';
+      if (formatOpts.precision === undefined) formatOpts.precision = opts.precision ?? 0;
+    }
+    const cnt = counts[id];
+    const sum = sums[id];
+    return {
+      id,
+      name: f.name,
+      sum,
+      avg: cnt > 0 ? sum / cnt : 0,
+      count: cnt,
+      formattedSum: formatNumberField(sum, formatOpts),
+      formattedAvg: formatNumberField(cnt > 0 ? sum / cnt : 0, formatOpts),
+    };
+  });
+
+  if (fields.length === 0) return null;
+  return { cellCount: cellList.length, fields };
+}
+
+/** 由 VTable 选区 range（{startRow,startCol,endRow,endCol}）展开为 {col,row,record} 列表（分组表需经 subTable 取原始记录） */
+function cellsFromRange(range: any): { col: number; row: number; record: any }[] {
+  if (!range) return [];
+  const startCol = Math.min(range.startCol, range.endCol);
+  const endCol = Math.max(range.startCol, range.endCol);
+  const startRow = Math.min(range.startRow, range.endRow);
+  const endRow = Math.max(range.startRow, range.endRow);
+  const list: { col: number; row: number; record: any }[] = [];
+  for (let r = startRow; r <= endRow; r++) {
+    for (let c = startCol; c <= endCol; c++) {
+      let record: any = null;
+      try {
+        // 与 click_cell 一致：用顶层实例以全局坐标取原始记录（不经 subTable，避免坐标错位）
+        record = (tableInstance as any)?.getCellOriginRecord?.(c, r);
+      } catch {
+        record = null;
+      }
+      list.push({ col: c, row: r, record });
+    }
+  }
+  return list;
+}
+
+// 拖拽过程中按帧节流，避免高频重算
+let selectionRaf: number | null = null;
+let pendingCellList: { col: number; row: number; record: any }[] | null = null;
+function scheduleSelectionSummary(cellList: { col: number; row: number; record: any }[]) {
+  pendingCellList = cellList;
+  if (selectionRaf !== null) return;
+  selectionRaf = requestAnimationFrame(() => {
+    selectionRaf = null;
+    selectionSummary.value = computeSummaryFromCellList(pendingCellList);
+    pendingCellList = null;
+  });
+}
+
+/**
+ * 兜底触发：VTable 不同版本对拖拽框选事件的暴露不一致（部分版本不触发
+ * mouseSelectionEnd / selected 带选区）。这里在容器 mouseup 时主动读取当前选区
+ * getSelectedRange()，确保拖动结束后一定重新计算求和。
+ */
+function onTableMouseUp() {
+  const t = tableInstance as any;
+  const range = t?.getSelectedRange?.();
+  if (
+    range &&
+    typeof range.startRow === 'number' &&
+    typeof range.endRow === 'number' &&
+    range.startRow >= 0 &&
+    range.startCol >= 0
+  ) {
+    selectionSummary.value = computeSummaryFromCellList(cellsFromRange(range));
+  }
+}
+
+/**
+ * 兜底（关键）：VTable 可能在内部 mouseup 上 stopPropagation，导致容器上的
+ * DOM mouseup 收不到；且不同版本对 selected / mouseSelectionEnd 的暴露不一致。
+ * 这里用 window 捕获阶段（capture=true，早于任何 stopPropagation）监听 mouseup，
+ * 主动读取 tableInstance.getSelectedRange() 重新计算求和，确保拖拽框选一定生效。
+ */
+let dragStartCell: { col: number; row: number } | null = null;
+
+// 通过鼠标事件坐标定位单元格（兜底，不依赖 VTable 选区）
+function getCellFromEvent(e: MouseEvent): { col: number; row: number } | null {
+  const t = tableInstance as any;
+  const container = tableContainerRef.value;
+  if (!t || !container || typeof t.getCellAt !== 'function') return null;
+  const rect = container.getBoundingClientRect();
+  try {
+    const cell = t.getCellAt(e.clientX - rect.left, e.clientY - rect.top);
+    if (cell && typeof cell.col === 'number' && cell.col >= 0 && typeof cell.row === 'number' && cell.row >= 0) return cell;
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+// 由起点/终点单元格计算矩形选区并求和（不依赖 VTable 选区是否触发）
+function computeRangeSummary(endCell: { col: number; row: number } | null) {
+  if (dragStartCell && endCell) {
+    const range = {
+      startRow: Math.min(dragStartCell.row, endCell.row),
+      endRow: Math.max(dragStartCell.row, endCell.row),
+      startCol: Math.min(dragStartCell.col, endCell.col),
+      endCol: Math.max(dragStartCell.col, endCell.col),
+    };
+    selectionSummary.value = computeSummaryFromCellList(cellsFromRange(range));
+  }
+  dragStartCell = null;
+}
+
+function onWindowMouseDownCapture(e: MouseEvent) {
+  const target = e.target as HTMLElement | null;
+  if (target && tableContainerRef.value && tableContainerRef.value.contains(target)) {
+    dragStartCell = getCellFromEvent(e);
+  }
+}
+
+function onWindowMouseUpCapture(e: MouseEvent) {
+  const endCell = getCellFromEvent(e);
+  computeRangeSummary(endCell);
+}
+
+let windowSelectionListenersBound = false;
+function bindWindowSelectionListeners() {
+  if (windowSelectionListenersBound || typeof window === 'undefined') return;
+  window.addEventListener('mouseup', onWindowMouseUpCapture, true);
+  window.addEventListener('mousedown', onWindowMouseDownCapture, true);
+  windowSelectionListenersBound = true;
+}
+
+// 将求和摘要通过事件推送给父组件（Base.vue 底部状态栏），保证跨组件响应式可靠
+watch(
+  selectionSummary,
+  (val) => {
+    emit('selection-summary-change', val);
+  },
+  { immediate: true },
+);
 
 const columnWidths = ref<Record<string, number>>({});
 const frozenDataRowCount = ref<number>(0); // 冻结数据行数（用于响应式更新右键菜单状态）
@@ -5980,8 +6204,46 @@ const bindTableEvents = () => {
         emit('record-select', null);
       }
       // 注：records-select 统一由 selectedRecordIds 的 watcher 上报（覆盖行选/复选框/全选）
+
+      // 拖拽框选/行选数值单元格时，实时计算各数值列合计/均值（兼容 args.cells 与 args.ranges 两种结构）
+      const cellList =
+        args.cells && args.cells.length
+          ? args.cells.map((c: any) => ({ col: c.col, row: c.row, record: c.record }))
+          : args.ranges && args.ranges.length
+            ? args.ranges.flatMap((rg: any) => cellsFromRange(rg))
+            : [];
+      selectionSummary.value = computeSummaryFromCellList(cellList);
+    } else {
+      selectionSummary.value = null;
     }
   });
+
+  // 鼠标拖拽框选（类 Excel）：拖动过程中按帧实时更新，松手后再次确认求和
+  tableInstanceAny.on('mouseSelectionDrag', (args: any) => {
+    if (args?.range) scheduleSelectionSummary(cellsFromRange(args.range));
+  });
+  tableInstanceAny.on('mouseSelectionEnd', (args: any) => {
+    if (args?.range) selectionSummary.value = computeSummaryFromCellList(cellsFromRange(args.range));
+  });
+  tableInstanceAny.on('mouseSelectionClear', () => {
+    selectionSummary.value = null;
+  });
+
+  // 拖拽框选（类 Excel）：直接用 mousedown_cell / mouseup_cell 记录起点/终点单元格，
+  // 自行计算矩形选区求和（不依赖 VTable 选区是否触发 selected / mouseSelectionEnd）
+  tableInstanceAny.on('mousedown_cell', (args: any) => {
+    if (typeof args?.col === 'number' && typeof args?.row === 'number') {
+      dragStartCell = { col: args.col, row: args.row };
+    }
+  });
+  tableInstanceAny.on('mouseup_cell', (args: any) => {
+    if (typeof args?.col === 'number' && typeof args?.row === 'number') {
+      computeRangeSummary({ col: args.col, row: args.row });
+    }
+  });
+
+  // 兜底：window 捕获阶段监听 mouseup，确保拖拽框选一定能触发求和计算
+  bindWindowSelectionListeners();
 
   // 复选框状态变更 - 仅更新 checkboxSelectedRows
   tableInstanceAny.on('checkbox_state_change', (args: any) => {
@@ -7482,6 +7744,12 @@ onBeforeUnmount(() => {
     collabStore.releaseAllCurrentLocks(baseId, tableId);
   }
   cleanupRealtimeListeners();
+  // 清理拖拽框选兜底监听（{ capture: true } 需与 add 保持一致）
+  if (windowSelectionListenersBound) {
+    window.removeEventListener('mouseup', onWindowMouseUpCapture, true);
+    window.removeEventListener('mousedown', onWindowMouseDownCapture, true);
+    windowSelectionListenersBound = false;
+  }
   // 清理主从表
   disposeMasterDetail();
   document.removeEventListener('click', handleDocumentClick);
@@ -7535,6 +7803,8 @@ defineExpose({
       selectedRecordIds.value.length === sortedRecords.value.length,
     scope: "page",
   }),
+  /** 选中记录的数值字段求和摘要（类 Excel 底栏），供 Base.vue 底部状态栏展示 */
+  selectionSummary,
   refresh: () => {
     updateTable();
   },
@@ -8128,7 +8398,7 @@ watch(
       ref="tableContainerRef"
       class="vtable-container"
       @contextmenu.prevent
-    ></div>
+      @mouseup="onTableMouseUp"></div>
 
     <!-- 树形数据加载中：首次加载/搜索重建期间表格为空，给出明确加载提示 -->
     <div
