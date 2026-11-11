@@ -906,7 +906,15 @@ def create_table_from_excel() -> tuple:
                               for i, v in enumerate(unique_values)]
                     # 选项需要包装在 choices 数组中
                     field_config['options'] = {'choices': choices}
-            
+
+            # 数字/货币/百分比字段：根据列数据自动推断小数位数（精度），
+            # 取所有数值中小数位数的最大值，避免建表默认 precision=0 把
+            # 原本 33.123 这类带小数的数据在界面上显示成整数。
+            if field_type in ['number', 'currency', 'percent']:
+                if source_column and source_column in df.columns:
+                    precision = _compute_number_precision(df[source_column])
+                    field_config['options'] = {'precision': precision}
+
             try:
                 field_result = FieldService.create_field(
                     table_id=str(table.id),
@@ -1000,6 +1008,39 @@ def _save_temp_file(file) -> str:
 def _get_temp_file_path(file_key: str) -> Optional[str]:
     """获取临时文件路径"""
     return _temp_files.get(file_key)
+
+
+def _compute_number_precision(series) -> int:
+    """
+    根据一列数值计算应设置的精度（小数位数），取所有数值中小数位数的最大值。
+
+    用于 Excel 导入建表时自动推断数字/货币/百分比字段的小数位，
+    避免建表默认 precision=0 把原本 33.123 这类带小数数据在界面上显示成整数。
+
+    - 用 str() 的最短表示还原 Excel 中的小数位（Decimal 测量 exponent）；
+    - 先 round(value, 10) 抑制浮点表示噪声（如 0.1+0.2 产生的多余小数位）；
+    - 上限保护为 10，避免极端数据产生过大精度。
+    """
+    from decimal import Decimal
+
+    max_decimals = 0
+    for value in series.dropna():
+        try:
+            f = float(value)
+        except (ValueError, TypeError):
+            continue
+        f = round(f, 10)
+        if f == int(f):
+            continue
+        try:
+            exp = Decimal(str(f)).as_tuple().exponent
+            decimals = -exp if exp < 0 else 0
+        except Exception:
+            s = str(f)
+            decimals = len(s.split('.')[1]) if '.' in s else 0
+        if decimals > max_decimals:
+            max_decimals = decimals
+    return min(max_decimals, 10)
 
 
 def _get_option_color(index: int) -> str:
