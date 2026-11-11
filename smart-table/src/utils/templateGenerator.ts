@@ -4,7 +4,8 @@ import { FieldType } from "@/types";
 
 /**
  * 生成导入模板数据
- * 注意：不包含主键字段，主键由系统自动生成
+ * 注意：跳过系统字段（创建人、创建时间等由系统维护），但保留主字段
+ * （主键字段）——主字段是用户可编辑的标题列，记录 UUID 才由系统自动生成。
  */
 export function generateTemplateData(fields: FieldEntity[]): {
   headers: string[];
@@ -15,9 +16,9 @@ export function generateTemplateData(fields: FieldEntity[]): {
   const sampleData: Record<string, any> = {};
   const fieldDescriptions: Record<string, string> = {};
 
-  // 只包含非系统字段且非主键字段
+  // 只包含非系统字段（主字段需要用户填写，必须保留在模板中）
   fields.forEach((field) => {
-    if (field.isSystem || field.isPrimary) return; // 跳过系统字段和主键字段
+    if (field.isSystem) return; // 跳过系统字段
 
     headers.push(field.name);
     sampleData[field.name] = getSampleValue(field);
@@ -45,7 +46,10 @@ function getSampleValue(field: FieldEntity): any {
       return 100;
 
     case FieldType.DATE:
-      return new Date().toISOString().slice(0, 16).replace("T", " ");
+      return "2024-01-15"; // 日期类型：仅日期，不含时间
+
+    case FieldType.DATE_TIME:
+      return "2024-01-15 14:30:00"; // 日期时间类型：含日期与时间
 
     case FieldType.SINGLE_SELECT:
       const options = (field.options?.choices || field.options?.options) as Array<{ name: string }> || [];
@@ -104,7 +108,10 @@ function getFieldDescription(field: FieldEntity): string {
       description = "数字类型";
       break;
     case FieldType.DATE:
-      description = "日期时间格式，如: 2024-01-15 14:30";
+      description = "日期格式，如: 2024-01-15";
+      break;
+    case FieldType.DATE_TIME:
+      description = "日期时间格式，如: 2024-01-15 14:30:00";
       break;
     case FieldType.SINGLE_SELECT:
       const singleOptions =
