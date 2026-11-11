@@ -423,6 +423,16 @@ def batch_create_records(table_id) -> tuple:
 
         db.session.commit()
 
+        # ---------- 关联字段同步 ----------
+        # 批量创建（复制粘贴多行）会把关联目标 ID 直接写进 values，逐条补建
+        # LinkValue；否则表格显示「关联 N 条」、前端导出退化为记录 ID。
+        for record_id_uuid, record_dict in zip(created_record_ids, records_dicts):
+            record_obj = db.session.get(Record, record_id_uuid)
+            if record_obj:
+                RecordService._sync_link_values_from_input(
+                    record_obj, record_dict.get('values') or {}, field_map, g.current_user_id
+                )
+
         # ---------- 广播协作事件（不影响主流程） ----------
         try:
             from app.services.collaboration_service import CollaborationService

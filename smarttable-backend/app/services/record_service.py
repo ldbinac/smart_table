@@ -6,12 +6,13 @@ import uuid
 import re
 from datetime import datetime, timezone
 
-from sqlalchemy import cast, or_
+from sqlalchemy import cast, or_, select, and_
 from sqlalchemy.types import String
 from sqlalchemy.orm.attributes import flag_modified
 
 from app.extensions import db
 from app.models.record import Record
+from app.models.link_relation import LinkRelation, LinkValue, RelationshipType
 from app.models.field import Field, FieldType
 from app.models.record_history import RecordHistory, HistoryAction
 from app.models.table import Table
@@ -206,6 +207,99 @@ class RecordService:
         return records, total
     
     @staticmethod
+    def _target_already_has_backlink(field_id: str, target_id: str,
+                                     self_record_id: str) -> bool:
+        """目标记录是否已被其它记录占用反向关联（用于一对一 / 一对多的基数校验）。
+
+        正向 LinkRelation 的 target_field_id 在自动创建时可能为 None，因此不依赖它，
+        改为直接查「存在某条反向关联，其关系指向本关联字段、且已把目标记录作为源」，
+        精确判断目标侧是否已被占用。
+        """
+        existing = db.session.execute(
+            select(LinkValue).join(
+                LinkRelation, LinkValue.link_relation_id == LinkRelation.id
+            ).where(
+                and_(
+                    LinkRelation.target_field_id == field_id,
+                    LinkValue.source_record_id == target_id,
+                    LinkValue.target_record_id != self_record_id,
+                )
+            )
+        ).scalar_one_or_none()
+        return existing is not None
+
+    @staticmethod
+    def _strip_field_value(record, field_id) -> None:
+        """从记录 values 中移除某字段（关联被判定为不可复制时，保持单元格与数据一致）"""
+        values = dict(record.values or {})
+        if field_id in values:
+            values.pop(field_id, None)
+            record.values = values
+            flag_modified(record, 'values')
+            db.session.commit()
+
+    @staticmethod
+    def _sync_link_values_from_input(record, values_input, field_map, user_id) -> None:
+        """把 values 中的关联字段值同步为 LinkValue 关联记录。
+
+        复制记录、批量创建（粘贴多行）、外部 API 等路径会把关联目标 ID 直接
+        写进 record.values。如果不补建 LinkValue，get_record_links 与前端导出
+        的显示名解析都会失败：界面显示「关联 N 条」，导出退化为裸 UUID。
+        update_link_values 会把规范化后的关联列表写回 values 并处理双向镜像；
+        解析失败（如目标记录已删除的坏数据）时保留原值，避免丢数据。
+
+        基数约束：一对一 / 一对多的目标侧只能挂 1 条反向关联。若目标已被其它
+        记录（通常是原记录）占用，则整条关联不予复制——既保证声明的关系类型
+        始终成立，也不破坏原记录的关联。
+        注意：update_link_values 内部会 commit/rollback，调用方应处于
+        记录本体已提交的状态。
+        """
+        for field_id, raw in (values_input or {}).items():
+            field = field_map.get(field_id)
+            if not field or field.type not in (FieldType.LINK.value, FieldType.LINK_TO_RECORD.value):
+                continue
+            if isinstance(raw, list):
+                target_ids = [str(v) for v in raw if v]
+            elif raw:
+                target_ids = [str(raw)]
+            else:
+                continue
+            if not target_ids:
+                continue
+
+            relation, error = LinkService._get_or_create_link_relation_for_field(field)
+            if not relation:
+                log.warning(
+                    f'[RecordService] 同步关联值失败（无法确定关联关系）: '
+                    f'field={field_id}, record={record.id}, error={error}'
+                )
+                continue
+
+            # 基数约束：一对一 / 一对多的目标侧只能挂 1 条反向关联。
+            # 若该目标已被其它记录占用，整条关联不予复制。
+            if relation.relationship_type in (
+                RelationshipType.ONE_TO_ONE.value, RelationshipType.ONE_TO_MANY.value
+            ) and any(
+                RecordService._target_already_has_backlink(field_id, tid, str(record.id))
+                for tid in target_ids
+            ):
+                log.info(
+                    f'[RecordService] 复制关联跳过（目标侧基数约束）: field={field_id}, '
+                    f'record={record.id}, type={relation.relationship_type}'
+                )
+                RecordService._strip_field_value(record, field_id)
+                continue
+
+            ok, err = LinkService.update_link_values(
+                str(relation.id), str(record.id), target_ids, updated_by=user_id
+            )
+            if not ok:
+                log.warning(
+                    f'[RecordService] 同步关联值失败: field={field_id}, '
+                    f'record={record.id}, error={err}'
+                )
+
+    @staticmethod
     def create_record(table_id: str, values: Dict[str, Any],
                      created_by: str = None) -> Record:
         """
@@ -303,6 +397,12 @@ class RecordService:
         db.session.add(history)
 
         db.session.commit()
+
+        # 关联字段：复制记录等路径会直接把目标 ID 写进 values，必须补建
+        # LinkValue（含 values 规范化与双向镜像），否则界面显示「关联 N 条」、
+        # 导出退化为记录 ID。放在首次 commit 之后：update_link_values 内部
+        # 会 commit/rollback，不能影响记录创建事务。
+        RecordService._sync_link_values_from_input(record, values or {}, field_map, created_by)
 
         try:
             workflow_event_bus.publish(
@@ -452,6 +552,11 @@ class RecordService:
         db.session.flush()
         if commit:
             db.session.commit()
+            # 粘贴到关联单元格等路径可能直接写关联目标 ID，同步补建 LinkValue。
+            # 仅在独立提交时执行：workflow 事务（commit=False）中 update_link_values
+            # 的内部 commit 会破坏多表一致性。
+            if values:
+                RecordService._sync_link_values_from_input(record, values, field_map, updated_by)
 
         # 以下事件广播仅在真正提交时触发，避免事务回滚后发送错误的实时消息
         if commit and changes:

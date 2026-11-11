@@ -1231,6 +1231,44 @@ class LinkService:
                         'direction': 'incoming'
                     })
 
+            # 兜底：历史坏数据（复制记录、批量粘贴等路径曾把关联目标 ID 直接写进
+            # values 而未建 LinkValue）在 LinkValue 表中查不到任何关联。这里回退用
+            # values 中的记录 ID 解析显示名，避免界面与导出退化为「关联 N 条」/裸 UUID。
+            # 仅在该字段没有任何 LinkValue 时启用；一旦补建关联，缓存会被正常刷新。
+            try:
+                link_field_rows = db.session.execute(
+                    select(Field).where(
+                        Field.table_id == str(record.table_id),
+                        Field.type.in_([FieldType.LINK.value, FieldType.LINK_TO_RECORD.value]),
+                    )
+                ).scalars().all()
+                for field in link_field_rows:
+                    field_id = str(field.id)
+                    if field_id in result:
+                        continue
+                    raw = (record.values or {}).get(field_id)
+                    candidates = raw if isinstance(raw, list) else ([raw] if raw else [])
+                    for candidate in candidates:
+                        candidate_id = str(candidate) if candidate else ''
+                        if not candidate_id:
+                            continue
+                        target_record = db.session.get(Record, candidate_id)
+                        if not target_record or target_record.is_deleted:
+                            continue
+                        result.setdefault(field_id, []).append({
+                            'link_value_id': None,
+                            'link_relation_id': None,
+                            'target_record_id': candidate_id,
+                            'target_record': LinkService._get_link_display_value(
+                                target_record, field_id, _field_cache=field_cache
+                            ),
+                            'direction': 'outgoing',
+                        })
+            except Exception as e:
+                current_app.logger.warning(
+                    f'[LinkService] values 关联兜底解析失败: record={record_id}, error={e}'
+                )
+
             # 存入缓存
             if use_cache:
                 cache.set(cache_key, result, timeout=CACHE_TTL)
