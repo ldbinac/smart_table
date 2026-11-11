@@ -508,6 +508,7 @@ import {
   Search,
   Timer,
   LocationInformation,
+  Pointer,
 } from "@element-plus/icons-vue";
 
 /**
@@ -540,7 +541,7 @@ const fieldTypeIconComponentMap: Record<string, Component> = {
   updated_time: Timer,
   auto_number: List,
   geolocation: LocationInformation,
-  signature: EditPen,
+  signature: Pointer,
 };
 
 /**
@@ -623,7 +624,7 @@ export const fieldTypeSvgContentMap: Record<string, string> = {
   geolocation:
     '<path fill="currentColor" d="M512 64C348.8 64 217.6 195.2 217.6 358.4 217.6 588.8 512 960 512 960s294.4-371.2 294.4-601.6C806.4 195.2 675.2 64 512 64z m0 384a128 128 0 1 1 0-256 128 128 0 0 1 0 256z"/>',
   signature:
-    '<path fill="currentColor" d="m199.04 672.64 193.984 112 224-387.968-193.92-112-224 388.032zm-23.872 60.16 32.896 148.288 144.896-45.696zM455.04 229.248l193.92 112 56.704-98.112-193.984-112zM104.32 708.8l384-665.024 304.768 175.936L409.152 884.8h.064l-248.448 78.336zm384 254.272v-64h448v64z"/>',
+    '<path fill="currentColor" d="M511.6 128a64.4 64.4 0 0 0-64.4 64.4V709L274 571a94 94 0 0 0-112.8-3.5a44.4 44.4 0 0 0-9 62.2l180.6 240.8A64 64 0 0 0 384 896h512V575.2a64 64 0 0 0-45.6-61.3l-206-61.7a96 96 0 0 1-68.4-92V192.4a64.4 64.4 0 0 0-64.4-64.4M359 556.8l24.2 19.2V192.4a128.4 128.4 0 1 1 256.8 0v167.8a32 32 0 0 0 22.8 30.6l206 61.8A128 128 0 0 1 960 575.2V896a64 64 0 0 1-64 64H384a128 128 0 0 1-102.4-51.2L101.1 668A108.4 108.4 0 0 1 128 512.5a158 158 0 0 1 186 8.3z"/>',
 };
 
 /**
