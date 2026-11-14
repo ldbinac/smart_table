@@ -151,7 +151,7 @@ class TestLookupValidateConfig:
             config, str(lookup_data['current_table'].id)
         )
         assert ok is False
-        assert '不能引用当前数据表' in err
+        assert 'reference_current_data_table' in err
 
     def test_source_table_in_different_base(self, app, lookup_data):
         """sourceTableId 与当前表不在同一 base → 失败"""
@@ -161,7 +161,7 @@ class TestLookupValidateConfig:
             config, str(lookup_data['current_table'].id)
         )
         assert ok is False
-        assert '同一个多维表格' in err
+        assert 'source_data_table_same_base_current_table' in err
 
     def test_missing_target_field_id(self, app, lookup_data):
         """缺少 targetFieldId → 失败"""
@@ -181,7 +181,7 @@ class TestLookupValidateConfig:
             config, str(lookup_data['current_table'].id)
         )
         assert ok is False
-        assert '引用字段必须属于源数据表' in err
+        assert 'referenced_field_belong_source_data_table' in err
 
     def test_too_many_filter_conditions(self, app, lookup_data):
         """filterConditions 超过 5 个 → 失败"""
@@ -192,7 +192,7 @@ class TestLookupValidateConfig:
             config, str(lookup_data['current_table'].id)
         )
         assert ok is False
-        assert '最多支持 5 个查找条件' in err
+        assert 'most_lookup_conditions_supported' in err
 
     def test_condition_field_not_in_source_table(self, app, lookup_data):
         """条件的 fieldId 不属于源表 → 失败"""
@@ -202,7 +202,7 @@ class TestLookupValidateConfig:
             config, str(lookup_data['current_table'].id)
         )
         assert ok is False
-        assert '过滤条件字段必须属于源数据表' in err
+        assert 'filter_field_belong_source_data_table' in err
 
     def test_condition_invalid_operator(self, app, lookup_data):
         """条件的 operator 非法 → 失败"""
@@ -212,7 +212,7 @@ class TestLookupValidateConfig:
             config, str(lookup_data['current_table'].id)
         )
         assert ok is False
-        assert '操作符不合法' in err
+        assert 'invalid_filter_operator' in err
 
     def test_is_empty_no_value_needed(self, app, lookup_data):
         """条件 is_empty 时不需要 value → 成功"""
@@ -235,7 +235,7 @@ class TestLookupValidateConfig:
             config, str(lookup_data['current_table'].id)
         )
         assert ok is False
-        assert '值字段必须属于当前表' in err
+        assert 'filter_value_field_belong_current_table' in err
 
     def test_value_type_custom_missing_value_custom(self, app, lookup_data):
         """valueType=custom 但缺 valueCustom → 失败"""
@@ -248,7 +248,7 @@ class TestLookupValidateConfig:
             config, str(lookup_data['current_table'].id)
         )
         assert ok is False
-        assert '自定义值不能为空' in err
+        assert 'custom_value_empty' in err
 
     def test_invalid_aggregation_type(self, app, lookup_data):
         """aggregationType 非法 → 失败"""
@@ -258,7 +258,7 @@ class TestLookupValidateConfig:
             config, str(lookup_data['current_table'].id)
         )
         assert ok is False
-        assert '计算方式不合法' in err
+        assert 'invalid_computation_type' in err
 
     def test_field_format_incompatible_with_aggregation(self, app, lookup_data):
         """fieldFormat 与 aggregationType 不兼容（distinct_count + date）→ 失败"""
@@ -269,7 +269,7 @@ class TestLookupValidateConfig:
             config, str(lookup_data['current_table'].id)
         )
         assert ok is False
-        assert '字段格式与计算方式不兼容' in err
+        assert 'field_format_incompatible_computation_type' in err
 
     def test_full_valid_config(self, app, lookup_data):
         """完整合法配置 → 成功"""
@@ -777,7 +777,7 @@ class TestLookupFormatValue:
         """number 格式 + precision=2 → "60.00" """
         result = LookupService._format_value(
             60,
-            {'fieldFormat': LookupFieldFormat.NUMBER.value, 'precision': 2},
+            {'type': LookupFieldFormat.NUMBER.value, 'precision': 2},
             None,
         )
         assert result == '60.00'
@@ -787,7 +787,7 @@ class TestLookupFormatValue:
         result = LookupService._format_value(
             60,
             {
-                'fieldFormat': LookupFieldFormat.CURRENCY.value,
+                'type': LookupFieldFormat.CURRENCY.value,
                 'currencySymbol': '¥',
                 'precision': 2,
             },
@@ -799,7 +799,7 @@ class TestLookupFormatValue:
         """date 格式 + dateFormat="YYYY-MM-DD" → "2025-05-01" """
         result = LookupService._format_value(
             '2025-05-01',
-            {'fieldFormat': LookupFieldFormat.DATE.value, 'dateFormat': 'YYYY-MM-DD'},
+            {'type': LookupFieldFormat.DATE.value, 'dateFormat': 'YYYY-MM-DD'},
             None,
         )
         assert result == '2025-05-01'
@@ -808,7 +808,7 @@ class TestLookupFormatValue:
         """None 值直接返回 None"""
         result = LookupService._format_value(
             None,
-            {'fieldFormat': LookupFieldFormat.NUMBER.value, 'precision': 2},
+            {'type': LookupFieldFormat.NUMBER.value, 'precision': 2},
             None,
         )
         assert result is None

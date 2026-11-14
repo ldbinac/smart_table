@@ -2,7 +2,7 @@
 自动编号字段测试
 """
 import pytest
-from datetime import datetime
+from datetime import datetime, timezone
 from app.models.field import Field, FieldType
 
 
@@ -114,8 +114,8 @@ class TestAutoNumberField:
         )
 
         result = field.generate_auto_number(1)
-        # 验证格式包含当前日期
-        today = datetime.now().strftime('%Y%m%d')
+        # 验证格式包含当前日期（使用 UTC 时间，与业务代码一致）
+        today = datetime.now(timezone.utc).strftime('%Y%m%d')
         assert result.startswith(f'{today}-')
         assert result.endswith('-1')
 
@@ -132,8 +132,8 @@ class TestAutoNumberField:
         )
 
         result = field.generate_auto_number(1)
-        # 验证格式包含当前年月
-        this_month = datetime.now().strftime('%Y%m')
+        # 验证格式包含当前年月（使用 UTC 时间，与业务代码一致）
+        this_month = datetime.now(timezone.utc).strftime('%Y%m')
         assert result.startswith(f'{this_month}-')
 
     def test_generate_auto_number_full_config(self):

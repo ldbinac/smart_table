@@ -7,7 +7,7 @@ db_path = os.path.join(tmp, 'test.db')
 os.environ['DATABASE_URL'] = f'sqlite:///{db_path}'
 os.environ['FLASK_ENV'] = 'development'
 
-backend = r'd:\_dev\fs_table\smart-table-spec\smarttable-backend'
+backend = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, backend)
 os.chdir(backend)
 

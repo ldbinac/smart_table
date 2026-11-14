@@ -29,25 +29,25 @@ class TestValidateScriptNode:
         WorkflowService._validate_script_node(self._node(), all_node_ids=set())
 
     def test_invalid_language(self):
-        with pytest.raises(ValueError, match='语言'):
+        with pytest.raises(ValueError, match='script_language_python'):
             WorkflowService._validate_script_node(self._node(language='ruby'), all_node_ids=set())
 
     def test_empty_script(self):
-        with pytest.raises(ValueError, match='不能为空'):
+        with pytest.raises(ValueError, match='script_content_empty'):
             WorkflowService._validate_script_node(self._node(script_source=''), all_node_ids=set())
 
     def test_oversized_script(self):
-        with pytest.raises(ValueError, match='50000'):
+        with pytest.raises(ValueError, match='script_content_exceed_characters'):
             WorkflowService._validate_script_node(self._node(script_source='x' * 50001), all_node_ids=set())
 
     def test_timeout_out_of_range(self):
-        with pytest.raises(ValueError, match='超时'):
+        with pytest.raises(ValueError, match='timeout_positive_integer_between'):
             WorkflowService._validate_script_node(self._node(timeout=0), all_node_ids=set())
-        with pytest.raises(ValueError, match='超时'):
+        with pytest.raises(ValueError, match='timeout_positive_integer_between'):
             WorkflowService._validate_script_node(self._node(timeout=301), all_node_ids=set())
 
     def test_invalid_result_variable(self):
-        with pytest.raises(ValueError, match='变量名'):
+        with pytest.raises(ValueError, match='result_variable_name'):
             WorkflowService._validate_script_node(self._node(result_variable='123bad'), all_node_ids=set())
 
     def test_duplicate_branch_labels(self):

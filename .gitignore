@@ -70,6 +70,9 @@ env.bak/
 venv.bak/
 .trae/
 .codebuddy/
+.venv-win7/
+
+
 
 # mypy
 .mypy_cache/

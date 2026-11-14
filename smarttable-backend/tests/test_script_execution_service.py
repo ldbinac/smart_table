@@ -60,7 +60,7 @@ class TestPythonSandbox:
         # 构造 >1MB 结果
         r = ScriptExecutionService.execute('python', 'set_result({"x": "a" * 2000000})', None, {}, timeout=10)
         assert r['status'] == 'error'
-        assert '1MB' in r['error'] or '超过' in r['error']
+        assert 'script_output_exceeds_mb_limit' in r['error']
 
     def test_unsupported_language(self):
         r = ScriptExecutionService.execute('typescript', 'setResult(1)', None, {}, timeout=10)

@@ -57,6 +57,10 @@ vi.mock('@element-plus/icons-vue', () => ({
   Refresh: { template: '<span class="icon-refresh" />' },
   Cpu: { template: '<span class="icon-cpu" />' },
   QuestionFilled: { template: '<span class="icon-question-filled" />' },
+  Bell: { template: '<span class="icon-bell" />' },
+  LocationInformation: { template: '<span class="icon-location-information" />' },
+  Pointer: { template: '<span class="icon-pointer" />' },
+  FolderChecked: { template: '<span class="icon-folder-checked" />' },
 }));
 
 // Mock 工具函数

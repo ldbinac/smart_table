@@ -131,8 +131,9 @@ class TestErrorPaths:
         assert GeoService._load_json("/nonexistent/path/geo.json") is None
 
     def test_china_locations_missing_file_returns_empty(self, monkeypatch):
-        monkeypatch.setattr(GeoService, "CHINA_LOCATION_FILE", "/nonexistent.json")
-        # 缓存应失效，文件读取返回 None → 空列表
+        monkeypatch.setattr(GeoService, "CHINA_LOCATION_FILES", {"zh": "/nonexistent.json", "en": "/nonexistent.json"})
+        # 清除缓存确保重新读取
+        GeoService._cache.clear()
         assert GeoService.get_china_locations(level="district") == []
 
     def test_regions_missing_file_returns_empty(self, monkeypatch):

@@ -3,9 +3,24 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { mount, flushPromises } from '@vue/test-utils';
-import { nextTick } from 'vue';
+import { computed, nextTick } from 'vue';
+import { createPinia } from 'pinia';
 import { ElMessageBox } from 'element-plus';
 import WorkflowDesigner from '../WorkflowDesigner.vue';
+
+// Mock memberStore（避免真实 authStore 依赖链）
+vi.mock('@/stores/memberStore', () => ({
+  useMemberStore: () => ({
+    canManage: computed(() => true),
+    canEdit: computed(() => true),
+    canView: computed(() => true),
+    isOwner: computed(() => false),
+    members: { value: [] },
+    loading: { value: false },
+    error: { value: null },
+    currentUserRole: computed(() => 'admin'),
+  }),
+}));
 
 // Mock Sortablejs
 const mockSortableDestroy = vi.fn();
@@ -74,13 +89,33 @@ vi.mock('../WorkflowCanvasToolbar.vue', () => ({
 }));
 
 // Mock vue-router
-vi.mock('vue-router', () => ({
-  onBeforeRouteLeave: vi.fn((guard) => {
-    (globalThis as any).__testRouteGuard = guard;
-  }),
-  useRoute: () => ({}),
-  useRouter: () => ({}),
-}));
+vi.mock('vue-router', () => {
+  const mockRouter = {
+    beforeEach: vi.fn(),
+    afterEach: vi.fn(),
+    beforeResolve: vi.fn(),
+    push: vi.fn(),
+    replace: vi.fn(),
+    go: vi.fn(),
+    back: vi.fn(),
+    forward: vi.fn(),
+    currentRoute: { value: { path: '/', query: {}, params: {}, meta: {} } },
+    addRoute: vi.fn(),
+    removeRoute: vi.fn(),
+    hasRoute: vi.fn(),
+    getRoutes: vi.fn(() => []),
+  };
+  return {
+    onBeforeRouteLeave: vi.fn((guard) => {
+      (globalThis as any).__testRouteGuard = guard;
+    }),
+    useRoute: () => ({ path: '/', query: {}, params: {}, meta: {} }),
+    useRouter: () => mockRouter,
+    createRouter: vi.fn(() => mockRouter),
+    createWebHistory: vi.fn(() => ''),
+    createWebHashHistory: vi.fn(() => ''),
+  };
+});
 
 // Mock Element Plus 图标
 vi.mock('@element-plus/icons-vue', () => ({
@@ -89,6 +124,7 @@ vi.mock('@element-plus/icons-vue', () => ({
   EditPen: { template: '<span class="icon-edit-pen" />' },
   Plus: { template: '<span class="icon-plus" />' },
   Message: { template: '<span class="icon-message" />' },
+  Bell: { template: '<span class="icon-bell" />' },
   Link: { template: '<span class="icon-link" />' },
   Delete: { template: '<span class="icon-delete" />' },
   Rank: { template: '<span class="icon-rank" />' },
@@ -98,6 +134,12 @@ vi.mock('@element-plus/icons-vue', () => ({
   Search: { template: '<span class="icon-search" />' },
   Refresh: { template: '<span class="icon-refresh" />' },
   Cpu: { template: '<span class="icon-cpu" />' },
+  LocationInformation: { template: '<span class="icon-location-information" />' },
+  Pointer: { template: '<span class="icon-pointer" />' },
+  Minus: { template: '<span class="icon-minus" />' },
+  FullScreen: { template: '<span class="icon-fullscreen" />' },
+  Handbag: { template: '<span class="icon-handbag" />' },
+  FolderChecked: { template: '<span class="icon-folder-checked" />' },
 }));
 
 describe('WorkflowDesigner', () => {
@@ -166,6 +208,7 @@ describe('WorkflowDesigner', () => {
         webhooks: overrideProps.webhooks,
       },
       global: {
+        plugins: [createPinia()],
         stubs: {
           'el-button': {
             template: '<button class="el-button"><slot /></button>',

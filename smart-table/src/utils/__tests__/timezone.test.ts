@@ -26,8 +26,12 @@ describe("timezone", () => {
   });
 
   describe("getEffectiveTimezone", () => {
-    it("默认返回 UTC", () => {
-      expect(getEffectiveTimezone()).toBe("UTC");
+    it("未配置时区时返回浏览器本地时区", () => {
+      // 在无配置情况下，函数使用 dayjs.tz.guess() 返回浏览器本地时区
+      // 不同环境（开发机/CI/服务器）可能返回不同值，这里只验证返回值有效
+      const tz = getEffectiveTimezone();
+      expect(typeof tz).toBe("string");
+      expect(tz.length).toBeGreaterThan(0);
     });
 
     it("当 timezone_mode 为 local 时返回配置的时区名称", () => {

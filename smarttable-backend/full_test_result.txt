@@ -1,0 +1,1611 @@
+﻿.......................F..FFFF.....F......F.......F..................... [  5%]
+FFFF................FFFFFFF.FF....F..FFF.....F.......................... [ 11%]
+................F.F.....FFFFFFFF.FFF.F.......FFFFFFFFFFF................ [ 17%]
+........................................................................ [ 23%]
+........................................................................ [ 29%]
+.................................................................F...... [ 35%]
+.FFF.....FF.F.F.F...F................................................... [ 41%]
+........................................................EEEEEE.EEFFFFFFF [ 47%]
+.FFF............F........F.............F.FF..F......................FF.. [ 53%]
+.......F..F.F.FFFF.FFFFF.FFFFFFFFFFFFFF.F.........................s..... [ 59%]
+.........................................F.............FF...F........... [ 64%]
+...................................................................FFFFF [ 70%]
+FFFFF.F...............F..........F.FFFF.FFFFFF..FFFFFFFF....FFFFF....... [ 76%]
+........F..............F.....F................F....FFF...FF..FFF........ [ 82%]
+...................................................F.................... [ 88%]
+..........................................FFF........................... [ 94%]
+...................F.....F..........................................     [100%]
+=================================== ERRORS ====================================
+_____________________ ERROR at setup of test_get_members ______________________
+file D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_member_sharing.py, line 69
+  def test_get_members(base_id):
+E       fixture 'base_id' not found
+>       available fixtures: anyio_backend, anyio_backend_name, anyio_backend_options, app, auth_headers, cache, capfd, capfdbinary, caplog, capsys, capsysbinary, client, cov, db_session, doctest_namespace, editor_auth_headers, free_tcp_port, free_tcp_port_factory, free_udp_port, free_udp_port_factory, monkeypatch, no_cover, pytestconfig, record_property, record_testsuite_property, record_xml_attribute, recwarn, runner, test_base, test_editor_user, test_field, test_record, test_table, test_user, test_view, test_viewer_user, tmp_path, tmp_path_factory, tmpdir, tmpdir_factory, viewer_auth_headers
+>       use 'pytest --fixtures [testpath]' for help on them.
+
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_member_sharing.py:69
+______________________ ERROR at setup of test_add_member ______________________
+file D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_member_sharing.py, line 88
+  def test_add_member(base_id):
+E       fixture 'base_id' not found
+>       available fixtures: anyio_backend, anyio_backend_name, anyio_backend_options, app, auth_headers, cache, capfd, capfdbinary, caplog, capsys, capsysbinary, client, cov, db_session, doctest_namespace, editor_auth_headers, free_tcp_port, free_tcp_port_factory, free_udp_port, free_udp_port_factory, monkeypatch, no_cover, pytestconfig, record_property, record_testsuite_property, record_xml_attribute, recwarn, runner, test_base, test_editor_user, test_field, test_record, test_table, test_user, test_view, test_viewer_user, tmp_path, tmp_path_factory, tmpdir, tmpdir_factory, viewer_auth_headers
+>       use 'pytest --fixtures [testpath]' for help on them.
+
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_member_sharing.py:88
+__________________ ERROR at setup of test_update_member_role __________________
+file D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_member_sharing.py, line 111
+  def test_update_member_role(base_id, user_id):
+E       fixture 'base_id' not found
+>       available fixtures: anyio_backend, anyio_backend_name, anyio_backend_options, app, auth_headers, cache, capfd, capfdbinary, caplog, capsys, capsysbinary, client, cov, db_session, doctest_namespace, editor_auth_headers, free_tcp_port, free_tcp_port_factory, free_udp_port, free_udp_port_factory, monkeypatch, no_cover, pytestconfig, record_property, record_testsuite_property, record_xml_attribute, recwarn, runner, test_base, test_editor_user, test_field, test_record, test_table, test_user, test_view, test_viewer_user, tmp_path, tmp_path_factory, tmpdir, tmpdir_factory, viewer_auth_headers
+>       use 'pytest --fixtures [testpath]' for help on them.
+
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_member_sharing.py:111
+_____________________ ERROR at setup of test_create_share _____________________
+file D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_member_sharing.py, line 130
+  def test_create_share(base_id):
+E       fixture 'base_id' not found
+>       available fixtures: anyio_backend, anyio_backend_name, anyio_backend_options, app, auth_headers, cache, capfd, capfdbinary, caplog, capsys, capsysbinary, client, cov, db_session, doctest_namespace, editor_auth_headers, free_tcp_port, free_tcp_port_factory, free_udp_port, free_udp_port_factory, monkeypatch, no_cover, pytestconfig, record_property, record_testsuite_property, record_xml_attribute, recwarn, runner, test_base, test_editor_user, test_field, test_record, test_table, test_user, test_view, test_viewer_user, tmp_path, tmp_path_factory, tmpdir, tmpdir_factory, viewer_auth_headers
+>       use 'pytest --fixtures [testpath]' for help on them.
+
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_member_sharing.py:130
+______________________ ERROR at setup of test_get_shares ______________________
+file D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_member_sharing.py, line 153
+  def test_get_shares(base_id):
+E       fixture 'base_id' not found
+>       available fixtures: anyio_backend, anyio_backend_name, anyio_backend_options, app, auth_headers, cache, capfd, capfdbinary, caplog, capsys, capsysbinary, client, cov, db_session, doctest_namespace, editor_auth_headers, free_tcp_port, free_tcp_port_factory, free_udp_port, free_udp_port_factory, monkeypatch, no_cover, pytestconfig, record_property, record_testsuite_property, record_xml_attribute, recwarn, runner, test_base, test_editor_user, test_field, test_record, test_table, test_user, test_view, test_viewer_user, tmp_path, tmp_path_factory, tmpdir, tmpdir_factory, viewer_auth_headers
+>       use 'pytest --fixtures [testpath]' for help on them.
+
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_member_sharing.py:153
+_____________________ ERROR at setup of test_access_share _____________________
+file D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_member_sharing.py, line 172
+  def test_access_share(share_token):
+E       fixture 'share_token' not found
+>       available fixtures: anyio_backend, anyio_backend_name, anyio_backend_options, app, auth_headers, cache, capfd, capfdbinary, caplog, capsys, capsysbinary, client, cov, db_session, doctest_namespace, editor_auth_headers, free_tcp_port, free_tcp_port_factory, free_udp_port, free_udp_port_factory, monkeypatch, no_cover, pytestconfig, record_property, record_testsuite_property, record_xml_attribute, recwarn, runner, test_base, test_editor_user, test_field, test_record, test_table, test_user, test_view, test_viewer_user, tmp_path, tmp_path_factory, tmpdir, tmpdir_factory, viewer_auth_headers
+>       use 'pytest --fixtures [testpath]' for help on them.
+
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_member_sharing.py:172
+_____________________ ERROR at setup of test_delete_share _____________________
+file D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_member_sharing.py, line 207
+  def test_delete_share(share_id):
+E       fixture 'share_id' not found
+>       available fixtures: anyio_backend, anyio_backend_name, anyio_backend_options, app, auth_headers, cache, capfd, capfdbinary, caplog, capsys, capsysbinary, client, cov, db_session, doctest_namespace, editor_auth_headers, free_tcp_port, free_tcp_port_factory, free_udp_port, free_udp_port_factory, monkeypatch, no_cover, pytestconfig, record_property, record_testsuite_property, record_xml_attribute, recwarn, runner, test_base, test_editor_user, test_field, test_record, test_table, test_user, test_view, test_viewer_user, tmp_path, tmp_path_factory, tmpdir, tmpdir_factory, viewer_auth_headers
+>       use 'pytest --fixtures [testpath]' for help on them.
+
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_member_sharing.py:207
+____________________ ERROR at setup of test_remove_member _____________________
+file D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_member_sharing.py, line 222
+  def test_remove_member(base_id, user_id):
+E       fixture 'base_id' not found
+>       available fixtures: anyio_backend, anyio_backend_name, anyio_backend_options, app, auth_headers, cache, capfd, capfdbinary, caplog, capsys, capsysbinary, client, cov, db_session, doctest_namespace, editor_auth_headers, free_tcp_port, free_tcp_port_factory, free_udp_port, free_udp_port_factory, monkeypatch, no_cover, pytestconfig, record_property, record_testsuite_property, record_xml_attribute, recwarn, runner, test_base, test_editor_user, test_field, test_record, test_table, test_user, test_view, test_viewer_user, tmp_path, tmp_path_factory, tmpdir, tmpdir_factory, viewer_auth_headers
+>       use 'pytest --fixtures [testpath]' for help on them.
+
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_member_sharing.py:222
+================================== FAILURES ===================================
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_attachment.py:119: assert 404 in [201, 200, 400]
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_auth.py:19: assert 422 == 201
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_auth.py:31: assert 422 == 400
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_auth.py:43: assert 422 == 400
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_auth.py:55: assert 422 == 400
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_auth.py:121: assert 401 == 200
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_auto_number.py:119: AssertionError: assert False
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_base.py:46: AssertionError: assert 'items' in [{'color': '#6366f1', 'created_at': '2026-11-13T17:59:02.217781+00:00', 'description': '这是一个测试多维表格', 'icon': 'table', ...}]
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_captcha.py:94: AssertionError: assert 'incorrect_captcha' == '验证码错误'
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_captcha.py:100: AssertionError: assert 'enter_captcha' == '请输入验证码'
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_captcha.py:107: AssertionError: assert 'captcha_expi...esh_try_again' == '验证码已过期，请刷新重试'
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_captcha.py:112: assert False is True
+C:\Users\Chiefdata\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\sqlalchemy\engine\default.py:922: sqlalchemy.exc.OperationalError: (sqlite3.OperationalError) no such column: users.username
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_dashboard.py:26: assert 404 == 201
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_dashboard.py:40: assert 404 == 401
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_dashboard.py:51: AssertionError: assert 'items' in []
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_dashboard.py:62: KeyError: 'data'
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_dashboard.py:82: KeyError: 'data'
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_dashboard.py:106: KeyError: 'data'
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_dashboard.py:146: assert 404 in [201, 200]
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_document.py:23: assert 200 == 201
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_document.py:108: assert 500 == 404
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_document.py:169: assert 200 == 204
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_document.py:178: assert 500 == 404
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_document.py:210: assert 200 == 403
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_document_versions.py:60: assert 404 == 200
+D:\_dev\_src\github\smart_table\smarttable-backend\app\models\user.py:220: TypeError: can't compare offset-naive and offset-aware datetimes
+D:\_dev\_src\github\smart_table\smarttable-backend\app\models\user.py:220: TypeError: can't compare offset-naive and offset-aware datetimes
+C:\Users\Chiefdata\AppData\Local\Python\pythoncore-3.12-64\Lib\unittest\mock.py:928: AssertionError: Expected 'send_email_quick' to have been called once. Called 0 times.
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_email_integration.py:216: assert None is not None
+C:\Users\Chiefdata\AppData\Local\Python\pythoncore-3.12-64\Lib\unittest\mock.py:928: AssertionError: Expected 'send_email_quick' to have been called once. Called 0 times.
+C:\Users\Chiefdata\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\sqlalchemy\orm\loading.py:1582: sqlalchemy.orm.exc.DetachedInstanceError: Instance <Base at 0x2769bb39d00> is not bound to a Session; attribute refresh operation cannot proceed (Background on this error at: https://sqlalche.me/e/20/bhk3)
+C:\Users\Chiefdata\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\sqlalchemy\orm\loading.py:1582: sqlalchemy.orm.exc.DetachedInstanceError: Instance <Base at 0x2769a75c050> is not bound to a Session; attribute refresh operation cannot proceed (Background on this error at: https://sqlalche.me/e/20/bhk3)
+C:\Users\Chiefdata\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\sqlalchemy\orm\loading.py:1582: sqlalchemy.orm.exc.DetachedInstanceError: Instance <Base at 0x2769bb95400> is not bound to a Session; attribute refresh operation cannot proceed (Background on this error at: https://sqlalche.me/e/20/bhk3)
+C:\Users\Chiefdata\AppData\Local\Python\pythoncore-3.12-64\Lib\unittest\mock.py:1437: AttributeError: <class 'app.services.email_log_service.EmailLogService'> does not have the attribute 'create_log'
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_email_integration.py:421: AssertionError: 模板 account_suspended 应该存在
+C:\Users\Chiefdata\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\sqlalchemy\orm\decl_base.py:2142: TypeError: 'key' is an invalid keyword argument for SystemConfig
+C:\Users\Chiefdata\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\sqlalchemy\orm\decl_base.py:2142: TypeError: 'key' is an invalid keyword argument for SystemConfig
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_email_services.py:64: AttributeError: type object 'EmailConfigService' has no attribute '_get_config_value'
+C:\Users\Chiefdata\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\sqlalchemy\orm\decl_base.py:2142: TypeError: 'key' is an invalid keyword argument for SystemConfig
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_email_services.py:191: AttributeError: type object 'EmailLogService' has no attribute 'create_log'
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_email_services.py:206: AttributeError: type object 'EmailLogService' has no attribute 'create_log'
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_email_services.py:228: AttributeError: type object 'EmailLogService' has no attribute 'create_log'
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_email_services.py:249: AttributeError: type object 'EmailLogService' has no attribute 'create_log'
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_email_services.py:268: AttributeError: type object 'EmailLogService' has no attribute 'create_log'
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_email_services.py:282: AttributeError: type object 'EmailLogService' has no attribute 'create_log'
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_email_services.py:296: AttributeError: type object 'EmailLogService' has no attribute 'create_log'
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_email_services.py:315: AttributeError: type object 'EmailLogService' has no attribute 'create_log'
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_email_services.py:358: TypeError: EmailSenderService.send_email() missing 1 required positional argument: 'self'
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_email_services.py:373: TypeError: EmailSenderService.send_email() missing 1 required positional argument: 'self'
+C:\Users\Chiefdata\AppData\Local\Python\pythoncore-3.12-64\Lib\unittest\mock.py:928: AssertionError: Expected 'send_email' to have been called once. Called 0 times.
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_import_export.py:64: assert 405 in [200, 400]
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_import_export.py:177: assert 405 in [400, 422]
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_import_export.py:190: assert 405 in [400, 422]
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_import_export.py:202: assert 500 in [400, 404]
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_link_detail_api.py:216: TypeError: cannot unpack non-iterable NoneType object
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_link_detail_api.py:226: TypeError: cannot unpack non-iterable NoneType object
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_link_detail_api.py:254: TypeError: cannot unpack non-iterable NoneType object
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_link_detail_api.py:311: AssertionError: assert {'link_value': {'created_at': '2026-11-13T18:02:20.989192', 'id': 'afa9b5b2-b519-403e-b962-ee7c8ee9dfef', 'link_relati...': '522d8b4a-61ab-42a7-ad4b-6d31685a93a3', 'id': '13dbf9d4-5e6e-4229-a30f-e250363989a8', 'primary_value': '新子任务', ...}} is None
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_link_detail_api.py:385: TypeError: cannot unpack non-iterable NoneType object
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_link_detail_api.py:453: assert 500 == 400
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_notification_integration.py:154: assert 401 == 200
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_notification_integration.py:169: assert 401 == 200
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_notification_integration.py:182: assert 401 == 200
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_notification_integration.py:199: assert 401 == 200
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_notification_integration.py:219: assert 401 == 200
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_notification_integration.py:233: assert 401 == 200
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_notification_integration.py:259: assert 422 == 201
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_notification_integration.py:64: AssertionError: 登录失败: {'code': 403, 'error': 'captcha_invalid', 'message': '验证码错误: 验证码已过期，请刷新重试', 'success': False}
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_notification_integration.py:64: AssertionError: 登录失败: {'code': 403, 'error': 'captcha_invalid', 'message': '验证码错误: 验证码已过期，请刷新重试', 'success': False}
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_notification_integration.py:64: AssertionError: 登录失败: {'code': 403, 'error': 'captcha_invalid', 'message': '验证码错误: 验证码已过期，请刷新重试', 'success': False}
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_notification_service.py:426: AssertionError: assert '最大重试次数' in 'maximum_retry_count_reached'
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_oauth.py:229: assert 400 == 200
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_oauth.py:393: assert 400 == 201
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_oauth.py:441: assert 200 == 401
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_oauth.py:453: assert 200 == 401
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_oauth.py:500: assert 400 == 201
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_plugin_endpoints_e2e.py:338: AssertionError: {'code': 400, 'details': [{'detail': '当前宿主版本 1.6.10.5 不满足插件声明的引擎兼容范围 engines.smarttable: ">=1.0.0"（请升级宿主或放宽插件声明）', 'er...: 'ENGINES_INCOMPATIBLE', 'message': '当前宿主版本 1.6.10.5 不满足插件声明的引擎兼容范围 engines.smarttable: ">=1.0.0"（请升级宿主或放宽插件声明）', ...}
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_plugin_endpoints_e2e.py:388: AssertionError: assert 400 == 200
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_realtime_disabled.py:37: assert 500 == 200
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_realtime_disabled.py:50: assert 401 == 200
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_realtime_disabled.py:65: assert 422 == 200
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_realtime_disabled.py:82: assert 401 == 201
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_realtime_disabled.py:90: KeyError: 'data'
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_realtime_disabled.py:100: KeyError: 'data'
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_realtime_enabled.py:46: assert 500 == 200
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_realtime_enabled.py:61: assert False
+C:\Users\Chiefdata\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\flask_socketio\test_client.py:232: RuntimeError: not connected
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_realtime_enabled.py:79: assert None is not None
+D:\_dev\_src\github\smart_table\smarttable-backend\app\db_types.py:41: sqlalchemy.exc.StatementError: (builtins.ValueError) Invalid UUID string: test-user-id
+D:\_dev\_src\github\smart_table\smarttable-backend\app\db_types.py:41: sqlalchemy.exc.StatementError: (builtins.ValueError) Invalid UUID string: test-user-id
+D:\_dev\_src\github\smart_table\smarttable-backend\app\db_types.py:41: sqlalchemy.exc.StatementError: (builtins.ValueError) Invalid UUID string: user-1
+C:\Users\Chiefdata\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\redis\connection.py:524: redis.exceptions.ResponseError: wrong number of arguments for 'hset' command
+C:\Users\Chiefdata\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\redis\connection.py:524: redis.exceptions.ResponseError: wrong number of arguments for 'hset' command
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_realtime_enabled.py:149: KeyError: 'data'
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_realtime_enabled.py:177: KeyError: 'data'
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_record.py:21: assert 404 == 201
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_record.py:32: assert 404 == 200
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_record.py:43: assert 404 == 200
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_record.py:55: assert 404 == 200
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_record.py:71: assert 404 == 200
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_record.py:81: assert 404 == 200
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_record.py:97: assert 404 in [200, 201]
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_record.py:113: assert 404 == 200
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_record.py:126: assert 404 == 200
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_record.py:179: assert 404 == 200
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_static_serving.py:60: assert True is False
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_table.py:21: assert 404 == 201
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_table.py:33: AssertionError: assert 'items' in [{'base_id': '9e75ba04-08f9-44db-b0a6-dcc0669f5840', 'created_at': '2026-11-13T18:05:47.214740+00:00', 'description': '这是一个测试表格', 'field_count': 0, ...}]
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_table.py:78: assert 405 in [200, 400]
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_view.py:20: assert 404 == 201
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_view.py:38: assert 404 == 201
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_view.py:55: assert 404 == 201
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_view.py:65: assert 404 == 200
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_view.py:76: assert 404 == 200
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_view.py:93: assert 404 == 200
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_view.py:106: assert 404 == 201
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_view.py:119: KeyError: 'data'
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_view.py:138: assert 404 == 200
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_view.py:144: assert 404 == 200
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_view.py:167: assert 500 == 404
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_webhook_service.py:230: assert 0 == 1
+C:\Users\Chiefdata\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\sqlalchemy\engine\default.py:922: sqlalchemy.exc.IntegrityError: (sqlite3.IntegrityError) FOREIGN KEY constraint failed
+C:\Users\Chiefdata\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\sqlalchemy\engine\default.py:922: sqlalchemy.exc.IntegrityError: (sqlite3.IntegrityError) FOREIGN KEY constraint failed
+C:\Users\Chiefdata\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\sqlalchemy\engine\default.py:922: sqlalchemy.exc.IntegrityError: (sqlite3.IntegrityError) FOREIGN KEY constraint failed
+C:\Users\Chiefdata\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\sqlalchemy\engine\default.py:922: sqlalchemy.exc.IntegrityError: (sqlite3.IntegrityError) FOREIGN KEY constraint failed
+C:\Users\Chiefdata\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\sqlalchemy\engine\default.py:922: sqlalchemy.exc.IntegrityError: (sqlite3.IntegrityError) FOREIGN KEY constraint failed
+C:\Users\Chiefdata\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\sqlalchemy\engine\default.py:922: sqlalchemy.exc.IntegrityError: (sqlite3.IntegrityError) FOREIGN KEY constraint failed
+C:\Users\Chiefdata\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\sqlalchemy\engine\default.py:922: sqlalchemy.exc.IntegrityError: (sqlite3.IntegrityError) FOREIGN KEY constraint failed
+C:\Users\Chiefdata\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\sqlalchemy\engine\default.py:922: sqlalchemy.exc.IntegrityError: (sqlite3.IntegrityError) FOREIGN KEY constraint failed
+C:\Users\Chiefdata\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\sqlalchemy\engine\default.py:922: sqlalchemy.exc.IntegrityError: (sqlite3.IntegrityError) FOREIGN KEY constraint failed
+C:\Users\Chiefdata\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\sqlalchemy\engine\default.py:922: sqlalchemy.exc.IntegrityError: (sqlite3.IntegrityError) FOREIGN KEY constraint failed
+C:\Users\Chiefdata\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\sqlalchemy\engine\default.py:922: sqlalchemy.exc.IntegrityError: (sqlite3.IntegrityError) FOREIGN KEY constraint failed
+C:\Users\Chiefdata\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\sqlalchemy\engine\default.py:922: sqlalchemy.exc.IntegrityError: (sqlite3.IntegrityError) FOREIGN KEY constraint failed
+C:\Users\Chiefdata\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\sqlalchemy\engine\default.py:922: sqlalchemy.exc.IntegrityError: (sqlite3.IntegrityError) FOREIGN KEY constraint failed
+C:\Users\Chiefdata\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\sqlalchemy\engine\default.py:922: sqlalchemy.exc.IntegrityError: (sqlite3.IntegrityError) FOREIGN KEY constraint failed
+C:\Users\Chiefdata\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\sqlalchemy\engine\default.py:922: sqlalchemy.exc.IntegrityError: (sqlite3.IntegrityError) FOREIGN KEY constraint failed
+C:\Users\Chiefdata\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\sqlalchemy\engine\default.py:922: sqlalchemy.exc.IntegrityError: (sqlite3.IntegrityError) FOREIGN KEY constraint failed
+C:\Users\Chiefdata\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\sqlalchemy\engine\default.py:922: sqlalchemy.exc.IntegrityError: (sqlite3.IntegrityError) FOREIGN KEY constraint failed
+C:\Users\Chiefdata\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\sqlalchemy\engine\default.py:922: sqlalchemy.exc.IntegrityError: (sqlite3.IntegrityError) FOREIGN KEY constraint failed
+C:\Users\Chiefdata\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\sqlalchemy\engine\default.py:922: sqlalchemy.exc.IntegrityError: (sqlite3.IntegrityError) FOREIGN KEY constraint failed
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_workflow_execution.py:1627: AssertionError: Regex pattern did not match.
+C:\Users\Chiefdata\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\sqlalchemy\orm\session.py:929: sqlalchemy.exc.PendingRollbackError: This Session's transaction has been rolled back due to a previous exception during flush. To begin a new transaction with this Session, first issue Session.rollback(). Original exception was: (sqlite3.IntegrityError) FOREIGN KEY constraint failed
+C:\Users\Chiefdata\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\sqlalchemy\orm\session.py:929: sqlalchemy.exc.PendingRollbackError: This Session's transaction has been rolled back due to a previous exception during flush. To begin a new transaction with this Session, first issue Session.rollback(). Original exception was: (sqlite3.IntegrityError) FOREIGN KEY constraint failed
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_workflow_execution.py:1756: AssertionError: Regex pattern did not match.
+C:\Users\Chiefdata\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\sqlalchemy\orm\session.py:929: sqlalchemy.exc.PendingRollbackError: This Session's transaction has been rolled back due to a previous exception during flush. To begin a new transaction with this Session, first issue Session.rollback(). Original exception was: (sqlite3.IntegrityError) FOREIGN KEY constraint failed
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_workflow_execution.py:2317: AttributeError: 'str' object has no attribute 'value'
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_workflow_loop.py:247: AssertionError: assert ('嵌套深度' in 'loop_nesting_depth_exceed_levels' or '3 层' in 'loop_nesting_depth_exceed_levels')
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_workflow_loop.py:314: AssertionError: assert ('5 个' in 'single_workflow_most_loop_nodes' or '5个' in 'single_workflow_most_loop_nodes')
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_workflow_loop.py:770: AssertionError: assert '空' in 'loop_data_source_empty'
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_workflow_loop.py:1052: AssertionError: assert 'wrapper-1' is None
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_workflow_loop.py:1062: AssertionError: assert 'loop-body-2709574416720' is None
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_workflow_loop.py:1072: AssertionError: assert 'loop-body-2709579178512' is None
+C:\Users\Chiefdata\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\sqlalchemy\orm\session.py:929: sqlalchemy.exc.PendingRollbackError: This Session's transaction has been rolled back due to a previous exception during flush. To begin a new transaction with this Session, first issue Session.rollback(). Original exception was: (sqlite3.IntegrityError) FOREIGN KEY constraint failed
+C:\Users\Chiefdata\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\sqlalchemy\orm\session.py:929: sqlalchemy.exc.PendingRollbackError: This Session's transaction has been rolled back due to a previous exception during flush. To begin a new transaction with this Session, first issue Session.rollback(). Original exception was: (sqlite3.IntegrityError) FOREIGN KEY constraint failed
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_workflow_loop_integration.py:1053: AssertionError: assert ('5' in 'single_workflow_most_loop_nodes')
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_workflow_loop_integration.py:1077: AssertionError: assert ('嵌套深度' in 'loop_nesting_depth_exceed_levels' or '3 层' in 'loop_nesting_depth_exceed_levels')
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_workflow_loop_integration.py:1103: AssertionError: assert '条件' in 'conditional_branch_nodes_not_supported_loop_bodies'
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_workflow_routes.py:676: AssertionError: assert None == '通知用户'
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_workflow_send_email.py:356: AssertionError: Regex pattern did not match.
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_workflow_send_email.py:375: assert 403 == 200
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_workflow_send_email.py:413: assert 403 == 200
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_workflow_service.py:1228: AssertionError: assert ('当前' in 'start_time_after_current_utc_time_no_repeat_mode' or '之后' in 'start_time_after_current_utc_time_no_repeat_mode' or '开始时间' in 'start_time_after_current_utc_time_no_repeat_mode')
+D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_workflow_service.py:1375: AssertionError: assert '时间字段' in 'select_time_field'
+============================== warnings summary ===============================
+app\schemas\user_schema.py:16
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\schemas\user_schema.py:16: RemovedInMarshmallow4Warning: Passing field metadata as keyword arguments is deprecated. Use the explicit `metadata=...` argument instead. Additional metadata: {'description': '用户唯一标识'}
+    id = fields.String(dump_only=True, description='用户唯一标识')
+
+C:\Users\Chiefdata\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\marshmallow\fields.py:1732
+C:\Users\Chiefdata\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\marshmallow\fields.py:1732
+C:\Users\Chiefdata\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\marshmallow\fields.py:1732
+C:\Users\Chiefdata\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\marshmallow\fields.py:1732
+C:\Users\Chiefdata\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\marshmallow\fields.py:1732
+  C:\Users\Chiefdata\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\marshmallow\fields.py:1732: RemovedInMarshmallow4Warning: Passing field metadata as keyword arguments is deprecated. Use the explicit `metadata=...` argument instead. Additional metadata: {'description': '邮箱地址'}
+    super().__init__(*args, **kwargs)
+
+app\schemas\user_schema.py:18
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\schemas\user_schema.py:18: RemovedInMarshmallow4Warning: Passing field metadata as keyword arguments is deprecated. Use the explicit `metadata=...` argument instead. Additional metadata: {'description': '用户名'}
+    username = fields.String(dump_only=True, description='用户名')
+
+app\schemas\user_schema.py:19
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\schemas\user_schema.py:19: RemovedInMarshmallow4Warning: Passing field metadata as keyword arguments is deprecated. Use the explicit `metadata=...` argument instead. Additional metadata: {'description': '用户姓名'}
+    name = fields.String(required=True, validate=validate.Length(min=1, max=100), description='用户姓名')
+
+app\schemas\user_schema.py:20
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\schemas\user_schema.py:20: RemovedInMarshmallow4Warning: Passing field metadata as keyword arguments is deprecated. Use the explicit `metadata=...` argument instead. Additional metadata: {'description': '头像 URL'}
+    avatar = fields.String(allow_none=True, description='头像 URL')
+
+app\schemas\user_schema.py:21
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\schemas\user_schema.py:21: RemovedInMarshmallow4Warning: Passing field metadata as keyword arguments is deprecated. Use the explicit `metadata=...` argument instead. Additional metadata: {'description': '用户角色'}
+    role = fields.String(dump_only=True, description='用户角色')
+
+app\schemas\user_schema.py:22
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\schemas\user_schema.py:22: RemovedInMarshmallow4Warning: Passing field metadata as keyword arguments is deprecated. Use the explicit `metadata=...` argument instead. Additional metadata: {'description': '用户状态'}
+    status = fields.String(dump_only=True, description='用户状态')
+
+C:\Users\Chiefdata\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\marshmallow\fields.py:1176
+C:\Users\Chiefdata\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\marshmallow\fields.py:1176
+  C:\Users\Chiefdata\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\marshmallow\fields.py:1176: RemovedInMarshmallow4Warning: Passing field metadata as keyword arguments is deprecated. Use the explicit `metadata=...` argument instead. Additional metadata: {'description': '邮箱是否已验证'}
+    super().__init__(**kwargs)
+
+C:\Users\Chiefdata\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\marshmallow\fields.py:1258
+C:\Users\Chiefdata\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\marshmallow\fields.py:1258
+  C:\Users\Chiefdata\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\marshmallow\fields.py:1258: RemovedInMarshmallow4Warning: Passing field metadata as keyword arguments is deprecated. Use the explicit `metadata=...` argument instead. Additional metadata: {'description': '最后登录时间'}
+    super().__init__(**kwargs)
+
+C:\Users\Chiefdata\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\marshmallow\fields.py:1258
+C:\Users\Chiefdata\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\marshmallow\fields.py:1258
+  C:\Users\Chiefdata\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\marshmallow\fields.py:1258: RemovedInMarshmallow4Warning: Passing field metadata as keyword arguments is deprecated. Use the explicit `metadata=...` argument instead. Additional metadata: {'description': '创建时间'}
+    super().__init__(**kwargs)
+
+C:\Users\Chiefdata\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\marshmallow\fields.py:1258
+  C:\Users\Chiefdata\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\marshmallow\fields.py:1258: RemovedInMarshmallow4Warning: Passing field metadata as keyword arguments is deprecated. Use the explicit `metadata=...` argument instead. Additional metadata: {'description': '更新时间'}
+    super().__init__(**kwargs)
+
+app\schemas\user_schema.py:39
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\schemas\user_schema.py:39: RemovedInMarshmallow4Warning: Passing field metadata as keyword arguments is deprecated. Use the explicit `metadata=...` argument instead. Additional metadata: {'description': '密码（至少8位，包含大小写字母和数字）'}
+    password = fields.String(
+
+app\schemas\user_schema.py:45
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\schemas\user_schema.py:45: RemovedInMarshmallow4Warning: Passing field metadata as keyword arguments is deprecated. Use the explicit `metadata=...` argument instead. Additional metadata: {'description': '用户名（用于登录）'}
+    username = fields.String(
+
+app\schemas\user_schema.py:52
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\schemas\user_schema.py:52: RemovedInMarshmallow4Warning: Passing field metadata as keyword arguments is deprecated. Use the explicit `metadata=...` argument instead. Additional metadata: {'description': '用户姓名（可选，默认使用用户名）'}
+    name = fields.String(
+
+app\schemas\user_schema.py:58
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\schemas\user_schema.py:58: RemovedInMarshmallow4Warning: Passing field metadata as keyword arguments is deprecated. Use the explicit `metadata=...` argument instead. Additional metadata: {'description': '验证码（可选）'}
+    captcha = fields.String(
+
+app\schemas\user_schema.py:99
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\schemas\user_schema.py:99: RemovedInMarshmallow4Warning: Passing field metadata as keyword arguments is deprecated. Use the explicit `metadata=...` argument instead. Additional metadata: {'description': '邮箱地址或用户名（与 username 至少提供一个）'}
+    email = fields.String(
+
+app\schemas\user_schema.py:104
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\schemas\user_schema.py:104: RemovedInMarshmallow4Warning: Passing field metadata as keyword arguments is deprecated. Use the explicit `metadata=...` argument instead. Additional metadata: {'description': '用户名（与 email 至少提供一个）'}
+    username = fields.String(
+
+app\schemas\user_schema.py:111
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\schemas\user_schema.py:111: RemovedInMarshmallow4Warning: Passing field metadata as keyword arguments is deprecated. Use the explicit `metadata=...` argument instead. Additional metadata: {'description': '密码'}
+    password = fields.String(
+
+app\schemas\user_schema.py:117
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\schemas\user_schema.py:117: RemovedInMarshmallow4Warning: Passing field metadata as keyword arguments is deprecated. Use the explicit `metadata=...` argument instead. Additional metadata: {'description': '验证码（可选）'}
+    captcha = fields.String(
+
+app\schemas\user_schema.py:146
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\schemas\user_schema.py:146: RemovedInMarshmallow4Warning: Passing field metadata as keyword arguments is deprecated. Use the explicit `metadata=...` argument instead. Additional metadata: {'description': '用户姓名'}
+    name = fields.String(
+
+app\schemas\user_schema.py:151
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\schemas\user_schema.py:151: RemovedInMarshmallow4Warning: Passing field metadata as keyword arguments is deprecated. Use the explicit `metadata=...` argument instead. Additional metadata: {'description': '头像 URL'}
+    avatar = fields.String(
+
+app\schemas\user_schema.py:166
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\schemas\user_schema.py:166: RemovedInMarshmallow4Warning: Passing field metadata as keyword arguments is deprecated. Use the explicit `metadata=...` argument instead. Additional metadata: {'description': '旧密码'}
+    old_password = fields.String(
+
+app\schemas\user_schema.py:172
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\schemas\user_schema.py:172: RemovedInMarshmallow4Warning: Passing field metadata as keyword arguments is deprecated. Use the explicit `metadata=...` argument instead. Additional metadata: {'description': '新密码（至少8位，包含大小写字母和数字）'}
+    new_password = fields.String(
+
+app\schemas\user_schema.py:202
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\schemas\user_schema.py:202: RemovedInMarshmallow4Warning: Passing field metadata as keyword arguments is deprecated. Use the explicit `metadata=...` argument instead. Additional metadata: {'description': '刷新令牌'}
+    refresh_token = fields.String(
+
+app\schemas\user_schema.py:215
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\schemas\user_schema.py:215: RemovedInMarshmallow4Warning: Passing field metadata as keyword arguments is deprecated. Use the explicit `metadata=...` argument instead. Additional metadata: {'description': '访问令牌'}
+    access_token = fields.String(description='访问令牌')
+
+app\schemas\user_schema.py:216
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\schemas\user_schema.py:216: RemovedInMarshmallow4Warning: Passing field metadata as keyword arguments is deprecated. Use the explicit `metadata=...` argument instead. Additional metadata: {'description': '刷新令牌'}
+    refresh_token = fields.String(description='刷新令牌')
+
+app\schemas\user_schema.py:217
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\schemas\user_schema.py:217: RemovedInMarshmallow4Warning: The 'default' argument to fields is deprecated. Use 'dump_default' instead.
+    token_type = fields.String(default='Bearer', description='令牌类型')
+
+app\schemas\user_schema.py:217
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\schemas\user_schema.py:217: RemovedInMarshmallow4Warning: Passing field metadata as keyword arguments is deprecated. Use the explicit `metadata=...` argument instead. Additional metadata: {'description': '令牌类型'}
+    token_type = fields.String(default='Bearer', description='令牌类型')
+
+C:\Users\Chiefdata\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\marshmallow\fields.py:944
+  C:\Users\Chiefdata\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\marshmallow\fields.py:944: RemovedInMarshmallow4Warning: Passing field metadata as keyword arguments is deprecated. Use the explicit `metadata=...` argument instead. Additional metadata: {'description': '访问令牌过期时间（秒）'}
+    super().__init__(**kwargs)
+
+C:\Users\Chiefdata\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\marshmallow\fields.py:569
+  C:\Users\Chiefdata\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\marshmallow\fields.py:569: RemovedInMarshmallow4Warning: Passing field metadata as keyword arguments is deprecated. Use the explicit `metadata=...` argument instead. Additional metadata: {'description': '用户信息'}
+    super().__init__(default=default, dump_default=dump_default, **kwargs)
+
+C:\Users\Chiefdata\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\marshmallow\fields.py:569
+  C:\Users\Chiefdata\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\marshmallow\fields.py:569: RemovedInMarshmallow4Warning: Passing field metadata as keyword arguments is deprecated. Use the explicit `metadata=...` argument instead. Additional metadata: {'description': '令牌信息'}
+    super().__init__(default=default, dump_default=dump_default, **kwargs)
+
+app\schemas\user_schema.py:235
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\schemas\user_schema.py:235: RemovedInMarshmallow4Warning: Passing field metadata as keyword arguments is deprecated. Use the explicit `metadata=...` argument instead. Additional metadata: {'description': '用户唯一标识'}
+    id = fields.String(dump_only=True, description='用户唯一标识')
+
+app\schemas\user_schema.py:237
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\schemas\user_schema.py:237: RemovedInMarshmallow4Warning: Passing field metadata as keyword arguments is deprecated. Use the explicit `metadata=...` argument instead. Additional metadata: {'description': '用户姓名'}
+    name = fields.String(description='用户姓名')
+
+app\schemas\user_schema.py:238
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\schemas\user_schema.py:238: RemovedInMarshmallow4Warning: Passing field metadata as keyword arguments is deprecated. Use the explicit `metadata=...` argument instead. Additional metadata: {'description': '头像 URL'}
+    avatar = fields.String(allow_none=True, description='头像 URL')
+
+app\schemas\user_schema.py:239
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\schemas\user_schema.py:239: RemovedInMarshmallow4Warning: Passing field metadata as keyword arguments is deprecated. Use the explicit `metadata=...` argument instead. Additional metadata: {'description': '用户角色'}
+    role = fields.String(dump_only=True, description='用户角色')
+
+app\schemas\user_schema.py:240
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\schemas\user_schema.py:240: RemovedInMarshmallow4Warning: Passing field metadata as keyword arguments is deprecated. Use the explicit `metadata=...` argument instead. Additional metadata: {'description': '用户状态'}
+    status = fields.String(dump_only=True, description='用户状态')
+
+C:\Users\Chiefdata\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\marshmallow\fields.py:1732
+  C:\Users\Chiefdata\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\marshmallow\fields.py:1732: RemovedInMarshmallow4Warning: Passing field metadata as keyword arguments is deprecated. Use the explicit `metadata=...` argument instead. Additional metadata: {'description': '注册时使用的邮箱地址'}
+    super().__init__(*args, **kwargs)
+
+app\schemas\user_schema.py:263
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\schemas\user_schema.py:263: RemovedInMarshmallow4Warning: Passing field metadata as keyword arguments is deprecated. Use the explicit `metadata=...` argument instead. Additional metadata: {'description': '密码重置令牌'}
+    token = fields.String(
+
+app\schemas\user_schema.py:268
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\schemas\user_schema.py:268: RemovedInMarshmallow4Warning: Passing field metadata as keyword arguments is deprecated. Use the explicit `metadata=...` argument instead. Additional metadata: {'description': '新密码'}
+    new_password = fields.String(
+
+C:\Users\Chiefdata\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\marshmallow\fields.py:1558
+C:\Users\Chiefdata\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\marshmallow\fields.py:1558
+  C:\Users\Chiefdata\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\marshmallow\fields.py:1558: RemovedInMarshmallow4Warning: The 'missing' argument to fields is deprecated. Use 'load_default' instead.
+    super().__init__(**kwargs)
+
+C:\Users\Chiefdata\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\marshmallow\fields.py:751
+C:\Users\Chiefdata\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\marshmallow\fields.py:751
+C:\Users\Chiefdata\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\marshmallow\fields.py:751
+C:\Users\Chiefdata\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\marshmallow\fields.py:751
+C:\Users\Chiefdata\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\marshmallow\fields.py:751
+  C:\Users\Chiefdata\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\marshmallow\fields.py:751: RemovedInMarshmallow4Warning: The 'missing' argument to fields is deprecated. Use 'load_default' instead.
+    super().__init__(**kwargs)
+
+app\routes\views.py:50
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\routes\views.py:50: RemovedInMarshmallow4Warning: The 'missing' argument to fields is deprecated. Use 'load_default' instead.
+    description = fields.String(missing='')
+
+app\routes\views.py:54
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\routes\views.py:54: RemovedInMarshmallow4Warning: The 'missing' argument to fields is deprecated. Use 'load_default' instead.
+    row_height = fields.String(missing='medium', validate=validate.OneOf(['small', 'medium', 'large']))
+
+C:\Users\Chiefdata\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\marshmallow\fields.py:1176
+  C:\Users\Chiefdata\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\marshmallow\fields.py:1176: RemovedInMarshmallow4Warning: The 'missing' argument to fields is deprecated. Use 'load_default' instead.
+    super().__init__(**kwargs)
+
+C:\Users\Chiefdata\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\marshmallow\fields.py:944
+  C:\Users\Chiefdata\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\marshmallow\fields.py:944: RemovedInMarshmallow4Warning: The 'missing' argument to fields is deprecated. Use 'load_default' instead.
+    super().__init__(**kwargs)
+
+app\routes\views.py:58
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\routes\views.py:58: RemovedInMarshmallow4Warning: The 'missing' argument to fields is deprecated. Use 'load_default' instead.
+    parent_field_id = fields.String(missing=None)
+
+app\schemas\admin_schema.py:10
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\schemas\admin_schema.py:10: RemovedInMarshmallow4Warning: Passing field metadata as keyword arguments is deprecated. Use the explicit `metadata=...` argument instead. Additional metadata: {'description': '密码'}
+    password = fields.String(required=True, description='密码')
+
+app\schemas\admin_schema.py:11
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\schemas\admin_schema.py:11: RemovedInMarshmallow4Warning: Passing field metadata as keyword arguments is deprecated. Use the explicit `metadata=...` argument instead. Additional metadata: {'description': '用户姓名'}
+    name = fields.String(required=True, validate=validate.Length(min=1, max=100), description='用户姓名')
+
+app\schemas\admin_schema.py:12
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\schemas\admin_schema.py:12: RemovedInMarshmallow4Warning: Passing field metadata as keyword arguments is deprecated. Use the explicit `metadata=...` argument instead. Additional metadata: {'description': '用户名（用于登录，默认使用姓名）'}
+    username = fields.String(required=False, validate=validate.Length(min=3, max=100), allow_none=True, description='用户名（用于登录，默认使用姓名）')
+
+app\schemas\admin_schema.py:13
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\schemas\admin_schema.py:13: RemovedInMarshmallow4Warning: Passing field metadata as keyword arguments is deprecated. Use the explicit `metadata=...` argument instead. Additional metadata: {'description': '用户角色'}
+    role = fields.String(load_default='editor', description='用户角色')
+
+app\schemas\admin_schema.py:19
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\schemas\admin_schema.py:19: RemovedInMarshmallow4Warning: Passing field metadata as keyword arguments is deprecated. Use the explicit `metadata=...` argument instead. Additional metadata: {'description': '用户姓名'}
+    name = fields.String(allow_none=True, validate=validate.Length(min=1, max=100), description='用户姓名')
+
+app\schemas\admin_schema.py:20
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\schemas\admin_schema.py:20: RemovedInMarshmallow4Warning: Passing field metadata as keyword arguments is deprecated. Use the explicit `metadata=...` argument instead. Additional metadata: {'description': '用户名（用于登录）'}
+    username = fields.String(allow_none=True, validate=validate.Length(min=3, max=100), description='用户名（用于登录）')
+
+app\schemas\admin_schema.py:21
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\schemas\admin_schema.py:21: RemovedInMarshmallow4Warning: Passing field metadata as keyword arguments is deprecated. Use the explicit `metadata=...` argument instead. Additional metadata: {'description': '用户角色'}
+    role = fields.String(allow_none=True, description='用户角色')
+
+app\schemas\admin_schema.py:22
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\schemas\admin_schema.py:22: RemovedInMarshmallow4Warning: Passing field metadata as keyword arguments is deprecated. Use the explicit `metadata=...` argument instead. Additional metadata: {'description': '用户状态'}
+    status = fields.String(allow_none=True, description='用户状态')
+
+app\schemas\admin_schema.py:27
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\schemas\admin_schema.py:27: RemovedInMarshmallow4Warning: Passing field metadata as keyword arguments is deprecated. Use the explicit `metadata=...` argument instead. Additional metadata: {'description': '用户状态'}
+    status = fields.String(required=True, description='用户状态')
+
+app\schemas\admin_schema.py:32
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\schemas\admin_schema.py:32: RemovedInMarshmallow4Warning: Passing field metadata as keyword arguments is deprecated. Use the explicit `metadata=...` argument instead. Additional metadata: {'description': '临时密码'}
+    temporary_password = fields.String(allow_none=True, description='临时密码')
+
+app\schemas\admin_schema.py:37
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\schemas\admin_schema.py:37: RemovedInMarshmallow4Warning: Passing field metadata as keyword arguments is deprecated. Use the explicit `metadata=...` argument instead. Additional metadata: {'description': '配置键'}
+    key = fields.String(required=True, description='配置键')
+
+app\schemas\admin_schema.py:38
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\schemas\admin_schema.py:38: RemovedInMarshmallow4Warning: Passing field metadata as keyword arguments is deprecated. Use the explicit `metadata=...` argument instead. Additional metadata: {'description': '配置值'}
+    value = fields.Raw(required=True, description='配置值')
+
+app\schemas\admin_schema.py:39
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\schemas\admin_schema.py:39: RemovedInMarshmallow4Warning: Passing field metadata as keyword arguments is deprecated. Use the explicit `metadata=...` argument instead. Additional metadata: {'description': '配置分组'}
+    group = fields.String(allow_none=True, description='配置分组')
+
+app\schemas\admin_schema.py:40
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\schemas\admin_schema.py:40: RemovedInMarshmallow4Warning: Passing field metadata as keyword arguments is deprecated. Use the explicit `metadata=...` argument instead. Additional metadata: {'description': '配置描述'}
+    description = fields.String(allow_none=True, description='配置描述')
+
+C:\Users\Chiefdata\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\marshmallow\fields.py:751
+  C:\Users\Chiefdata\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\marshmallow\fields.py:751: RemovedInMarshmallow4Warning: Passing field metadata as keyword arguments is deprecated. Use the explicit `metadata=...` argument instead. Additional metadata: {'description': '配置列表'}
+    super().__init__(**kwargs)
+
+app\schemas\admin_schema.py:50
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\schemas\admin_schema.py:50: RemovedInMarshmallow4Warning: Passing field metadata as keyword arguments is deprecated. Use the explicit `metadata=...` argument instead. Additional metadata: {'description': 'SMTP 服务器地址'}
+    smtp_host = fields.String(required=True, description='SMTP 服务器地址')
+
+C:\Users\Chiefdata\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\marshmallow\fields.py:944
+C:\Users\Chiefdata\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\marshmallow\fields.py:944
+  C:\Users\Chiefdata\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\marshmallow\fields.py:944: RemovedInMarshmallow4Warning: Passing field metadata as keyword arguments is deprecated. Use the explicit `metadata=...` argument instead. Additional metadata: {'description': 'SMTP 端口'}
+    super().__init__(**kwargs)
+
+app\schemas\admin_schema.py:52
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\schemas\admin_schema.py:52: RemovedInMarshmallow4Warning: Passing field metadata as keyword arguments is deprecated. Use the explicit `metadata=...` argument instead. Additional metadata: {'description': 'SMTP 用户名'}
+    smtp_username = fields.String(required=True, description='SMTP 用户名')
+
+app\schemas\admin_schema.py:53
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\schemas\admin_schema.py:53: RemovedInMarshmallow4Warning: Passing field metadata as keyword arguments is deprecated. Use the explicit `metadata=...` argument instead. Additional metadata: {'description': 'SMTP 密码'}
+    smtp_password = fields.String(required=True, description='SMTP 密码')
+
+C:\Users\Chiefdata\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\marshmallow\fields.py:1176
+C:\Users\Chiefdata\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\marshmallow\fields.py:1176
+  C:\Users\Chiefdata\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\marshmallow\fields.py:1176: RemovedInMarshmallow4Warning: Passing field metadata as keyword arguments is deprecated. Use the explicit `metadata=...` argument instead. Additional metadata: {'description': '是否使用 TLS'}
+    super().__init__(**kwargs)
+
+C:\Users\Chiefdata\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\marshmallow\fields.py:1176
+C:\Users\Chiefdata\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\marshmallow\fields.py:1176
+  C:\Users\Chiefdata\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\marshmallow\fields.py:1176: RemovedInMarshmallow4Warning: Passing field metadata as keyword arguments is deprecated. Use the explicit `metadata=...` argument instead. Additional metadata: {'description': '是否使用 SSL'}
+    super().__init__(**kwargs)
+
+C:\Users\Chiefdata\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\marshmallow\fields.py:1732
+C:\Users\Chiefdata\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\marshmallow\fields.py:1732
+  C:\Users\Chiefdata\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\marshmallow\fields.py:1732: RemovedInMarshmallow4Warning: Passing field metadata as keyword arguments is deprecated. Use the explicit `metadata=...` argument instead. Additional metadata: {'description': '发件人邮箱'}
+    super().__init__(*args, **kwargs)
+
+app\schemas\admin_schema.py:57
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\schemas\admin_schema.py:57: RemovedInMarshmallow4Warning: Passing field metadata as keyword arguments is deprecated. Use the explicit `metadata=...` argument instead. Additional metadata: {'description': '发件人名称'}
+    from_name = fields.String(allow_none=True, description='发件人名称')
+
+app\schemas\admin_schema.py:62
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\schemas\admin_schema.py:62: RemovedInMarshmallow4Warning: Passing field metadata as keyword arguments is deprecated. Use the explicit `metadata=...` argument instead. Additional metadata: {'description': 'SMTP 服务器地址'}
+    smtp_host = fields.String(required=True, description='SMTP 服务器地址')
+
+app\schemas\admin_schema.py:64
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\schemas\admin_schema.py:64: RemovedInMarshmallow4Warning: Passing field metadata as keyword arguments is deprecated. Use the explicit `metadata=...` argument instead. Additional metadata: {'description': 'SMTP 用户名'}
+    smtp_username = fields.String(required=True, description='SMTP 用户名')
+
+app\schemas\admin_schema.py:65
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\schemas\admin_schema.py:65: RemovedInMarshmallow4Warning: Passing field metadata as keyword arguments is deprecated. Use the explicit `metadata=...` argument instead. Additional metadata: {'description': 'SMTP 密码'}
+    smtp_password = fields.String(required=True, description='SMTP 密码')
+
+app\schemas\admin_schema.py:69
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\schemas\admin_schema.py:69: RemovedInMarshmallow4Warning: Passing field metadata as keyword arguments is deprecated. Use the explicit `metadata=...` argument instead. Additional metadata: {'description': '发件人名称'}
+    from_name = fields.String(allow_none=True, description='发件人名称')
+
+C:\Users\Chiefdata\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\marshmallow\fields.py:1732
+  C:\Users\Chiefdata\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\marshmallow\fields.py:1732: RemovedInMarshmallow4Warning: Passing field metadata as keyword arguments is deprecated. Use the explicit `metadata=...` argument instead. Additional metadata: {'description': '测试邮件接收地址'}
+    super().__init__(*args, **kwargs)
+
+tests\test_redis_manager.py:268
+  D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_redis_manager.py:268: PytestUnknownMarkWarning: Unknown pytest.mark.slow - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    @pytest.mark.slow
+
+tests/test_approval_service.py: 24 warnings
+tests/test_auto_number.py: 4 warnings
+tests/test_comment.py: 27 warnings
+tests/test_document.py: 27 warnings
+tests/test_document_versions.py: 4 warnings
+tests/test_field.py: 10 warnings
+tests/test_notification_integration.py: 2 warnings
+tests/test_plugin_endpoints_e2e.py: 10 warnings
+tests/test_record.py: 2 warnings
+tests/test_record_link_sync.py: 1 warning
+tests/test_table_share_service.py: 7 warnings
+tests/test_view.py: 1 warning
+tests/test_webhook_routes.py: 7 warnings
+tests/test_workflow_execution.py: 108 warnings
+tests/test_workflow_loop.py: 26 warnings
+tests/test_workflow_loop_integration.py: 14 warnings
+tests/test_workflow_loop_webhook.py: 1 warning
+tests/test_workflow_notify_node.py: 15 warnings
+tests/test_workflow_routes.py: 165 warnings
+tests/test_workflow_scheduler_service.py: 45 warnings
+tests/test_workflow_send_email.py: 4 warnings
+tests/test_workflow_service.py: 92 warnings
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\services\permission_service.py:32: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    base = Base.query.get(base_id)
+
+tests/test_approval_service.py: 12 warnings
+tests/test_auto_number.py: 4 warnings
+tests/test_field.py: 17 warnings
+tests/test_formula_service.py: 1 warning
+tests/test_link_detail_api.py: 12 warnings
+tests/test_record.py: 4 warnings
+tests/test_record_link_sync.py: 12 warnings
+tests/test_table_share_service.py: 15 warnings
+tests/test_workflow_execution.py: 47 warnings
+tests/test_workflow_notify_node.py: 6 warnings
+tests/test_workflow_routes.py: 1 warning
+tests/test_workflow_send_email.py: 1 warning
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\services\record_service.py:445: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    return Record.query.get(record_id)
+
+tests/test_approval_service.py::TestApprove::test_approve_any_mode
+tests/test_approval_service.py::TestApprove::test_approve_all_mode
+tests/test_approval_service.py::TestApprove::test_approve_all_mode
+tests/test_approval_service.py::TestApprove::test_approve_serial_mode
+tests/test_approval_service.py::TestApprove::test_non_assignee_cannot_approve
+tests/test_workflow_routes.py::TestApprovalRoutes::test_approve_task
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\services\approval_service.py:501: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    task = WorkflowTask.query.get(task_uuid)
+
+tests/test_approval_service.py::TestApprove::test_approve_any_mode
+tests/test_approval_service.py::TestApprove::test_approve_all_mode
+tests/test_approval_service.py::TestApprove::test_approve_all_mode
+tests/test_approval_service.py::TestApprove::test_approve_serial_mode
+tests/test_approval_service.py::TestReject::test_reject_terminates_instance
+tests/test_approval_service.py::TestTransfer::test_transfer_creates_new_task
+tests/test_approval_service.py::TestTimeout::test_auto_approve_timeout
+tests/test_approval_service.py::TestTimeout::test_auto_reject_timeout
+tests/test_workflow_routes.py::TestApprovalRoutes::test_approve_task
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\services\approval_service.py:73: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    user = User.query.get(ApprovalService._to_uuid(user_id))
+
+tests/test_approval_service.py::TestReject::test_reject_terminates_instance
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\services\approval_service.py:597: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    task = WorkflowTask.query.get(task_uuid)
+
+tests/test_approval_service.py::TestTransfer::test_transfer_creates_new_task
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\services\approval_service.py:660: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    task = WorkflowTask.query.get(task_uuid)
+
+tests/test_attachment.py: 10 warnings
+tests/test_auth.py: 4 warnings
+tests/test_auto_number.py: 2 warnings
+tests/test_base.py: 15 warnings
+tests/test_comment.py: 14 warnings
+tests/test_dashboard.py: 7 warnings
+tests/test_document.py: 11 warnings
+tests/test_document_versions.py: 2 warnings
+tests/test_e10_sso.py: 2 warnings
+tests/test_field.py: 21 warnings
+tests/test_geo_service.py: 5 warnings
+tests/test_import_export.py: 13 warnings
+tests/test_link_detail_api.py: 7 warnings
+tests/test_oauth.py: 33 warnings
+tests/test_plugin_endpoints_e2e.py: 13 warnings
+tests/test_record.py: 11 warnings
+tests/test_record_link_sync.py: 1 warning
+tests/test_table.py: 6 warnings
+tests/test_table_folders.py: 9 warnings
+tests/test_table_share_service.py: 9 warnings
+tests/test_view.py: 12 warnings
+tests/test_webhook_routes.py: 7 warnings
+tests/test_workflow_routes.py: 48 warnings
+  C:\Users\Chiefdata\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\jwt\api_jwt.py:147: InsecureKeyLengthWarning: The HMAC key is 15 bytes long, which is below the minimum recommended length of 32 bytes for SHA256. See RFC 7518 Section 3.2.
+    return self._jws.encode(
+
+tests/test_attachment.py: 4 warnings
+tests/test_auth.py: 2 warnings
+tests/test_auto_number.py: 2 warnings
+tests/test_base.py: 13 warnings
+tests/test_comment.py: 14 warnings
+tests/test_dashboard.py: 1 warning
+tests/test_document.py: 11 warnings
+tests/test_document_versions.py: 2 warnings
+tests/test_field.py: 21 warnings
+tests/test_geo_service.py: 5 warnings
+tests/test_import_export.py: 8 warnings
+tests/test_link_detail_api.py: 7 warnings
+tests/test_oauth.py: 33 warnings
+tests/test_plugin_endpoints_e2e.py: 13 warnings
+tests/test_record.py: 1 warning
+tests/test_record_link_sync.py: 1 warning
+tests/test_table.py: 4 warnings
+tests/test_table_folders.py: 9 warnings
+tests/test_table_share_service.py: 9 warnings
+tests/test_view.py: 2 warnings
+tests/test_webhook_routes.py: 7 warnings
+tests/test_workflow_routes.py: 48 warnings
+  C:\Users\Chiefdata\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\jwt\api_jwt.py:365: InsecureKeyLengthWarning: The HMAC key is 15 bytes long, which is below the minimum recommended length of 32 bytes for SHA256. See RFC 7518 Section 3.2.
+    decoded = self.decode_complete(
+
+tests/test_auth.py::TestAuth::test_get_current_user
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\services\auth_service.py:516: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    return User.query.get(uuid_id)
+
+tests/test_auto_number.py: 2 warnings
+tests/test_field.py: 20 warnings
+tests/test_table.py: 3 warnings
+tests/test_table_folders.py: 4 warnings
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\services\table_service.py:381: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    table = Table.query.get(table_id)
+
+tests/test_auto_number.py: 2 warnings
+tests/test_base.py: 3 warnings
+tests/test_dashboard.py: 1 warning
+tests/test_field.py: 42 warnings
+tests/test_import_export.py: 6 warnings
+tests/test_table.py: 4 warnings
+tests/test_table_folders.py: 17 warnings
+tests/test_table_share_service.py: 18 warnings
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\services\base_service.py:680: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    base = Base.query.get(base_id)
+
+tests/test_auto_number.py: 6 warnings
+tests/test_field.py: 41 warnings
+tests/test_formula_service.py: 1 warning
+tests/test_link_detail_api.py: 4 warnings
+tests/test_link_display_value.py: 2 warnings
+tests/test_oauth.py: 2 warnings
+tests/test_record.py: 2 warnings
+tests/test_record_link_sync.py: 9 warnings
+tests/test_table.py: 1 warning
+tests/test_table_folders.py: 3 warnings
+tests/test_table_share_service.py: 1 warning
+tests/test_workflow_execution.py: 22 warnings
+tests/test_workflow_loop_integration.py: 2 warnings
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\services\formula_service.py:1724: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    table = Table.query.get(str(table_id))
+
+tests/test_auto_number.py: 4 warnings
+tests/test_field.py: 10 warnings
+tests/test_link_display_value.py: 2 warnings
+tests/test_oauth.py: 5 warnings
+tests/test_record.py: 2 warnings
+tests/test_record_link_sync.py: 3 warnings
+tests/test_table.py: 3 warnings
+tests/test_table_folders.py: 4 warnings
+tests/test_table_share_service.py: 7 warnings
+tests/test_view.py: 2 warnings
+tests/test_workflow_routes.py: 10 warnings
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\services\table_service.py:50: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    return Table.query.get(table_id)
+
+tests/test_auto_number.py: 4 warnings
+tests/test_link_detail_api.py: 4 warnings
+tests/test_record_link_sync.py: 5 warnings
+tests/test_table_share_service.py: 1 warning
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\services\record_service.py:420: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    table = Table.query.get(table_id)
+
+tests/test_auto_number.py: 4 warnings
+tests/test_field.py: 10 warnings
+tests/test_record.py: 1 warning
+tests/test_table_share_service.py: 1 warning
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\services\formula_service.py:1926: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    table = Table.query.get(table_id)
+
+tests/test_base.py::TestBase::test_get_base_detail
+tests/test_base.py::TestBase::test_delete_base
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\services\base_service.py:91: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    return Base.query.get(base_id)
+
+tests/test_base.py::TestBase::test_update_base
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\services\base_service.py:148: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    base = Base.query.get(base_id)
+
+tests/test_base.py::TestBase::test_delete_base
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\services\base_service.py:175: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    base = Base.query.get(base_id)
+
+tests/test_base.py::TestTransferOwnership::test_transfer_ownership_by_non_owner
+tests/test_base.py::TestTransferOwnership::test_transfer_ownership_to_self
+tests/test_base.py::TestTransferOwnership::test_transfer_ownership_to_nonexistent_user
+tests/test_base.py::TestTransferOwnership::test_transfer_ownership_with_invalid_role
+tests/test_base.py::TestTransferOwnership::test_transfer_ownership_with_invalid_role
+tests/test_base.py::TestTransferOwnership::test_transfer_ownership_keep_role
+tests/test_base.py::TestTransferOwnership::test_transfer_ownership_remove_access
+tests/test_base.py::TestTransferOwnership::test_transfer_ownership_to_existing_member_upgrades_role
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\services\base_service.py:508: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    base = Base.query.get(base_id)
+
+tests/test_base.py::TestTransferOwnership::test_transfer_ownership_to_nonexistent_user
+tests/test_base.py::TestTransferOwnership::test_transfer_ownership_with_invalid_role
+tests/test_base.py::TestTransferOwnership::test_transfer_ownership_with_invalid_role
+tests/test_base.py::TestTransferOwnership::test_transfer_ownership_keep_role
+tests/test_base.py::TestTransferOwnership::test_transfer_ownership_remove_access
+tests/test_base.py::TestTransferOwnership::test_transfer_ownership_to_existing_member_upgrades_role
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\services\base_service.py:521: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    target_user = User.query.get(target_user_id)
+
+tests/test_base.py::TestTransferOwnership::test_transfer_ownership_keep_role
+tests/test_base.py::TestTransferOwnership::test_transfer_ownership_remove_access
+tests/test_base.py::TestTransferOwnership::test_transfer_ownership_to_existing_member_upgrades_role
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\services\base_service.py:535: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    old_owner = User.query.get(current_user_id)
+
+tests/test_base.py: 6 warnings
+tests/test_comment.py: 5 warnings
+tests/test_email_integration.py: 4 warnings
+tests/test_notification_service.py: 4 warnings
+tests/test_workflow_notify_node.py: 10 warnings
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\services\notification_service.py:77: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    user = User.query.get(user_id)
+
+tests/test_base.py::TestTransferOwnership::test_transfer_ownership_keep_role
+  D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_base.py:178: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    base = Base.query.get(str(test_base.id))
+
+tests/test_base.py::TestTransferOwnership::test_transfer_ownership_remove_access
+  D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_base.py:218: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    base = Base.query.get(str(test_base.id))
+
+tests/test_comment.py: 24 warnings
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\services\comment_service.py:43: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    record = Record.query.get(record_id)
+
+tests/test_comment.py: 15 warnings
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\services\comment_service.py:248: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    actor = User.query.get(user_id)
+
+tests/test_comment.py::test_reply_comment
+tests/test_comment.py::test_reply_notification
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\services\comment_service.py:244: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    parent = RecordComment.query.get(parent_id)
+
+tests/test_comment.py::test_edit_and_delete_own_comment
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\services\comment_service.py:319: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    comment = RecordComment.query.get(comment_id)
+
+tests/test_comment.py::test_edit_and_delete_own_comment
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\services\comment_service.py:349: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    actor = User.query.get(user_id)
+
+tests/test_comment.py::test_edit_and_delete_own_comment
+tests/test_comment.py::test_editor_delete_any_comment
+tests/test_comment.py::test_editor_delete_any_comment
+tests/test_comment.py::test_share_editor_can_delete_any_comment
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\services\comment_service.py:367: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    comment = RecordComment.query.get(comment_id)
+
+tests/test_comment.py::test_reply_notification
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\services\comment_service.py:282: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    parent_author = User.query.get(parent.user_id)
+
+tests/test_comment.py::test_record_comment_notification
+tests/test_comment.py::test_mention_and_follow_both_notified
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\services\comment_service.py:290: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    fu = User.query.get(f.user_id)
+
+tests/test_comment.py::test_comment_boundaries
+  D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_comment.py:266: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    rec = Record.query.get(test_record.id)
+
+tests/test_field.py: 21 warnings
+tests/test_link_export_roundtrip.py: 1 warning
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\services\field_service.py:295: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    return Field.query.get(field_id)
+
+tests/test_field.py: 22 warnings
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\services\field_service.py:1632: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    field = Field.query.get(field_id)
+
+tests/test_field.py: 22 warnings
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\services\field_service.py:1637: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    table = Table.query.get(field.table_id)
+
+tests/test_field.py: 15 warnings
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\services\field_service.py:469: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    field = Field.query.get(field_id)
+
+tests/test_field.py::TestField::test_delete_field
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\services\field_service.py:689: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    field = Field.query.get(field_id)
+
+tests/test_field.py: 7 warnings
+tests/test_formula_service.py: 1 warning
+tests/test_record.py: 1 warning
+tests/test_record_link_sync.py: 1 warning
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\services\record_service.py:585: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    table = Table.query.get(str(record.table_id))
+
+tests/test_field.py::TestFieldTypeConversion::test_convertible_types_interface
+tests/test_field.py::TestFieldTypeConversion::test_e2e_empty_field_convertible_types_now_allow_reference
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\routes\fields.py:341: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    field = Field.query.get(str(field_id))
+
+tests/test_formula_service.py::TestColumnReferences::test_build_table_context_reads_field_id_keys
+tests/test_formula_service.py::TestColumnReferences::test_build_table_context_cross_table_same_base
+tests/test_formula_service.py::TestColumnReferences::test_cross_base_reference_degrades_to_zero
+tests/test_formula_service.py::TestColumnReferences::test_reference_nonexistent_table_degrades_to_zero
+tests/test_formula_service.py::TestTableContextCache::test_cache_hit_within_ttl
+tests/test_formula_service.py::TestTableContextCache::test_invalidate_on_record_update
+tests/test_formula_service.py::TestTableContextCache::test_invalidate_on_record_update
+tests/test_formula_service.py::TestTableContextCache::test_ttl_expiry_rebuilds
+tests/test_formula_service.py::TestTableContextCache::test_ttl_expiry_rebuilds
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\services\formula_service.py:1759: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    table = Table.query.get(table_id)
+
+tests/test_formula_service.py::TestTableContextCache::test_cache_hit_within_ttl
+tests/test_formula_service.py::TestTableContextCache::test_invalidate_on_record_update
+tests/test_formula_service.py::TestTableContextCache::test_invalidate_on_record_update
+tests/test_formula_service.py::TestTableContextCache::test_ttl_expiry_rebuilds
+tests/test_formula_service.py::TestTableContextCache::test_ttl_expiry_rebuilds
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\services\formula_service.py:1698: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    table = Table.query.get(table_id)
+
+tests/test_import_export.py::TestImportExport::test_import_json_preview
+tests/test_import_export.py::TestImportExport::test_export_to_csv
+tests/test_import_export.py::TestImportExport::test_export_to_json
+tests/test_import_export.py::TestImportExport::test_export_specific_fields
+tests/test_import_export.py::TestImportExport::test_export_specific_records
+tests/test_import_export.py::TestImportExport::test_export_invalid_table
+tests/test_import_export.py::TestImportExport::test_export_invalid_format
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\services\base_service.py:783: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    table = Table.query.get(table_id)
+
+tests/test_import_export.py::TestImportExport::test_import_json_preview
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\services\import_export_service.py:372: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    table = Table.query.get(table_id)
+
+tests/test_import_export.py: 4 warnings
+tests/test_link_export_roundtrip.py: 6 warnings
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\services\import_export_service.py:542: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    table = Table.query.get(table_id)
+
+tests/test_link_export_roundtrip.py::TestLinkFieldExport::test_excel_export_contains_single_display_name
+tests/test_link_export_roundtrip.py::TestLinkFieldExport::test_excel_export_contains_single_display_name
+tests/test_link_export_roundtrip.py::TestLinkFieldExport::test_excel_export_contains_single_display_name
+  C:\Users\Chiefdata\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\openpyxl\packaging\core.py:99: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    now = datetime.datetime.utcnow()
+
+tests/test_link_export_roundtrip.py::TestLinkFieldExport::test_excel_export_contains_single_display_name
+  C:\Users\Chiefdata\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\openpyxl\writer\excel.py:292: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    workbook.properties.modified = datetime.datetime.utcnow()
+
+tests/test_lookup_service.py: 12 warnings
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\services\lookup_service.py:167: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    source_table = Table.query.get(str(source_table_id))
+
+tests/test_lookup_service.py: 12 warnings
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\services\lookup_service.py:171: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    current_table = Table.query.get(str(current_table_id))
+
+tests/test_member_sharing.py::test_get_shared_by_me
+  C:\Users\Chiefdata\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\_pytest\python.py:198: PytestReturnNotNoneWarning: Expected None, but tests/test_member_sharing.py::test_get_shared_by_me returned False, which will be an error in a future version of pytest.  Did you mean to use `assert` instead of `return`?
+    warnings.warn(
+
+tests/test_notification_integration.py: 1 warning
+tests/test_script_node_integration.py: 7 warnings
+tests/test_workflow_execution.py: 35 warnings
+tests/test_workflow_loop.py: 2 warnings
+tests/test_workflow_loop_integration.py: 4 warnings
+tests/test_workflow_loop_webhook.py: 2 warnings
+tests/test_workflow_notify_node.py: 13 warnings
+tests/test_workflow_send_email.py: 2 warnings
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\services\workflow_execution_engine.py:1678: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    workflow = Workflow.query.get(instance.workflow_id)
+
+tests/test_notification_service.py::TestNotificationServiceQuery::test_mark_as_read
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\services\notification_service.py:356: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    notification = Notification.query.get(notification_id)
+
+tests/test_notification_service.py::TestNotificationServiceQuery::test_delete_notification
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\services\notification_service.py:436: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    notification = Notification.query.get(notification_id)
+
+tests/test_notification_service.py::TestNotificationServiceQuery::test_delete_notification
+  D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_notification_service.py:337: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    assert Notification.query.get(nid) is None
+
+tests/test_notification_service.py::TestNotificationRetryService::test_retry_failed_notification
+tests/test_notification_service.py::TestNotificationRetryService::test_retry_max_count
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\services\notification_retry_service.py:315: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    notification = Notification.query.get(notification_id)
+
+tests/test_oauth.py::TestOAuthAppManagement::test_create_app_success
+tests/test_oauth.py::TestOAuthAppManagement::test_create_app_filters_invalid_scope
+tests/test_oauth.py::TestAuditCoverage::test_admin_create_writes_operation_log
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\routes\oauth.py:358: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    b = Base.query.get(uuid.UUID(str(bid)))
+
+tests/test_oauth.py: 11 warnings
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\services\oauth_app_service.py:117: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    return OAuthApp.query.get(uuid.UUID(str(app_id)))
+
+tests/test_oauth.py::TestOAuthAppManagement::test_update_app
+  D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_oauth.py:203: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    updated = OAuthApp.query.get(app_obj.id)
+
+tests/test_oauth.py::TestOAuthAppManagement::test_reset_secret_changes_secret
+  D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_oauth.py:219: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    reloaded = OAuthApp.query.get(app_obj.id)
+
+tests/test_oauth.py::TestTokenEndpoint::test_token_inactive_app
+  D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_oauth.py:301: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    a = OAuthApp.query.get(app_obj.id)
+
+tests/test_oauth.py: 12 warnings
+  D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_oauth.py:119: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    access_token, _ = OAuthAppService.issue_token(OAuthApp.query.get(app_obj.id))
+
+tests/test_oauth.py: 16 warnings
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\utils\decorators.py:945: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    app = OAuthApp.query.get(UUID(str(app_id)))
+
+tests/test_oauth.py::TestOpenAPI::test_get_base_detail
+tests/test_oauth.py::TestOpenAPI::test_get_tables_and_fields
+tests/test_oauth.py::TestOpenAPI::test_get_tables_and_fields
+tests/test_oauth.py::TestOpenAPI::test_record_crud_flow
+tests/test_oauth.py::TestOpenAPI::test_record_list_pagination
+tests/test_oauth.py::TestOpenAPIExtended::test_search_records
+tests/test_oauth.py::TestAuditCoverage::test_read_operations_audited
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\services\open_api_service.py:58: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    base = Base.query.get(base_uuid)
+
+tests/test_oauth.py::TestTokenRevocation::test_revoke_token_then_rejected
+  D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_oauth.py:431: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    real_app = OAuthApp.query.get(app_obj.id)
+
+tests/test_oauth.py::TestTokenRevocation::test_revoke_all_app_tokens
+  D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_oauth.py:447: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    real_app = OAuthApp.query.get(app_obj.id)
+
+tests/test_oauth.py::TestServiceLayer::test_generate_access_token_claims
+  D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_oauth.py:466: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    real_app = OAuthApp.query.get(app_obj.id)
+
+tests/test_oauth.py::TestServiceLayer::test_audit_log_written
+  D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_oauth.py:479: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    real_app = OAuthApp.query.get(app_obj.id)
+
+tests/test_oauth.py::TestOpenAPIExtended::test_admin_list_tokens
+  D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_oauth.py:548: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    real_app = OAuthApp.query.get(app_obj.id)
+
+tests/test_oauth.py::TestOpenAPIExtended::test_admin_audit_log
+  D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_oauth.py:561: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    real_app = OAuthApp.query.get(app_obj.id)
+
+tests/test_oauth.py::TestAuditCoverage::test_single_token_revoke_audited
+  D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_oauth.py:610: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    real_app = OAuthApp.query.get(app_obj.id)
+
+tests/test_realtime_enabled.py::TestCollaborationService::test_join_room
+tests/test_realtime_enabled.py::TestCollaborationService::test_leave_room
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\services\collaboration_service.py:56: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    user = User.query.get(user_id)
+
+tests/test_realtime_enabled.py::TestCollaborationService::test_acquire_and_release_lock
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\services\collaboration_service.py:487: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    user = User.query.get(user_id)
+
+tests/test_static_serving.py::TestServeFrontend::test_api_routes_not_intercepted
+tests/test_workflow_scheduler_service.py::TestAppLifecycle::test_init_services_starts_scheduler_on_first_request
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\__init__.py:163: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    'timestamp': datetime.utcnow().isoformat(),
+
+tests/test_table.py::TestTable::test_update_table
+tests/test_table_folders.py::TestTableFolderAPI::test_delete_nonempty_folder_conflict
+tests/test_table_folders.py::TestTableFolderAPI::test_move_table_out_of_folder
+tests/test_table_folders.py::TestTableFolderAPI::test_move_table_out_of_folder
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\services\table_service.py:180: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    table = Table.query.get(table_id)
+
+tests/test_table.py::TestTable::test_delete_table
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\services\table_service.py:220: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    table = Table.query.get(table_id)
+
+tests/test_table_folders.py::TestTableFolderAPI::test_rename_folder
+tests/test_table_folders.py::TestTableFolderAPI::test_delete_empty_folder_success
+tests/test_table_folders.py::TestTableFolderAPI::test_delete_nonempty_folder_conflict
+tests/test_table_folders.py::TestTableFolderAPI::test_delete_nonempty_folder_conflict
+tests/test_table_folders.py::TestTableFolderAPI::test_move_table_out_of_folder
+tests/test_table_folders.py::TestTableFolderAPI::test_move_table_to_foreign_folder_rejected
+tests/test_table_folders.py::TestTableFolderAPI::test_folder_not_found
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\services\table_folder_service.py:26: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    return TableFolder.query.get(folder_id)
+
+tests/test_table_folders.py::TestTableFolderAPI::test_rename_folder
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\services\table_folder_service.py:62: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    folder = TableFolder.query.get(folder_id)
+
+tests/test_table_folders.py::TestTableFolderAPI::test_delete_empty_folder_success
+tests/test_table_folders.py::TestTableFolderAPI::test_delete_nonempty_folder_conflict
+tests/test_table_folders.py::TestTableFolderService::test_service_delete_empty_only
+tests/test_table_folders.py::TestTableFolderService::test_service_delete_empty_only
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\services\table_folder_service.py:86: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    folder = TableFolder.query.get(folder_id)
+
+tests/test_table_folders.py::TestTableFolderAPI::test_delete_empty_folder_success
+  D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_table_folders.py:87: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    assert TableFolder.query.get(folder['id']) is None
+
+tests/test_table_folders.py::TestTableFolderAPI::test_delete_nonempty_folder_conflict
+  D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_table_folders.py:112: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    assert TableFolder.query.get(folder['id']) is not None
+
+tests/test_webhook_routes.py::TestGetWebhookReferences::test_get_webhook_references_empty
+tests/test_webhook_routes.py::TestGetWebhookReferences::test_get_webhook_references_with_nodes
+tests/test_webhook_routes.py::TestGetWebhookReferences::test_get_webhook_references_excludes_deleted_workflows
+tests/test_webhook_routes.py::TestGetWebhookReferences::test_get_webhook_references_not_found
+tests/test_webhook_routes.py::TestDeleteWebhookReferenceCheck::test_delete_webhook_blocked_when_referenced
+tests/test_webhook_routes.py::TestDeleteWebhookReferenceCheck::test_delete_webhook_succeeds_when_not_referenced
+tests/test_webhook_routes.py::TestDeleteWebhookReferenceCheck::test_delete_webhook_after_reference_removed
+tests/test_webhook_routes.py::TestDeleteWebhookReferenceCheck::test_delete_webhook_after_reference_removed
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\routes\webhooks.py:28: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    return WebhookConfig.query.get(webhook_id)
+
+tests/test_webhook_routes.py::TestDeleteWebhookReferenceCheck::test_delete_webhook_blocked_when_referenced
+  D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_webhook_routes.py:163: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    still_exists = WebhookConfig.query.get(webhook_config.id)
+
+tests/test_webhook_routes.py::TestDeleteWebhookReferenceCheck::test_delete_webhook_succeeds_when_not_referenced
+  D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_webhook_routes.py:179: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    deleted = WebhookConfig.query.get(webhook_config.id)
+
+tests/test_webhook_routes.py::TestDeleteWebhookReferenceCheck::test_delete_webhook_after_reference_removed
+  D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_webhook_routes.py:206: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    assert WebhookConfig.query.get(webhook_config.id) is None
+
+tests/test_webhook_service.py::TestRedeliver::test_redeliver_success
+tests/test_webhook_service.py::TestRedeliver::test_redeliver_webhook_config_not_found
+tests/test_webhook_service.py::TestRedeliver::test_redeliver_with_instance
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\services\webhook_service.py:516: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    webhook_config = WebhookConfig.query.get(delivery_log.webhook_config_id) if delivery_log.webhook_config_id else None
+
+tests/test_webhook_service.py::TestRedeliver::test_redeliver_with_instance
+tests/test_webhook_service.py::TestRedeliver::test_redeliver_with_instance
+tests/test_workflow_execution.py::TestExecuteWebhookRecordTemplate::test_webhook_template_record_gets_actual_data
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\services\webhook_service.py:298: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    workflow = Workflow.query.get(instance.workflow_id) if hasattr(instance, 'workflow_id') else None
+
+tests/test_webhook_service.py::TestRedeliver::test_redeliver_with_instance
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\services\webhook_service.py:525: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    instance = WorkflowInstance.query.get(delivery_log.instance_id)
+
+tests/test_workflow_execution.py: 5 warnings
+tests/test_workflow_loop_integration.py: 9 warnings
+tests/test_workflow_loop_webhook.py: 2 warnings
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\services\workflow_execution_engine.py:322: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    next_node = WorkflowNode.query.get(self._to_uuid(next_node_id))
+
+tests/test_workflow_execution.py: 12 warnings
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\services\workflow_execution_engine.py:529: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    table = Table.query.get(self._to_uuid(target_table_id))
+
+tests/test_workflow_execution.py::TestExecuteFindRecords::test_execute_find_records_returns_matching_records
+tests/test_workflow_execution.py::TestExecuteFindRecords::test_execute_find_records_empty_continue_returns_next_nodes
+tests/test_workflow_execution.py::TestExecuteFindRecords::test_execute_find_records_empty_stop_returns_empty_next_nodes
+tests/test_workflow_loop_integration.py::TestLoopIntegrationFindRecordsSendEmail::test_batch_send_email_by_member_deduped
+tests/test_workflow_loop_integration.py::TestLoopIntegrationFindRecordsCreateRecord::test_batch_archive_to_another_table
+tests/test_workflow_loop_integration.py::TestLoopIntegrationNested::test_nested_loop_creates_6_detail_records
+tests/test_workflow_loop_integration.py::TestLoopIntegrationNested::test_nested_loop_creates_6_detail_records
+tests/test_workflow_loop_webhook.py::TestLoopWithWebhookBody::test_find_records_all_loop_with_webhook_body_creates_logs
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\services\workflow_execution_engine.py:698: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    table = Table.query.get(self._to_uuid(target_table_id))
+
+tests/test_workflow_execution.py::TestRunInstanceWithInstanceId::test_run_instance_with_string_id
+tests/test_workflow_execution.py::TestRunInstanceWithInstanceId::test_run_instance_with_uuid_object
+tests/test_workflow_execution.py::TestRunInstanceWithInstanceId::test_run_instance_not_found
+tests/test_workflow_execution.py::TestRunInstanceMissingTriggerNode::test_run_instance_no_nodes_creates_error_log
+tests/test_workflow_execution.py::TestRunInstanceMissingTriggerNode::test_run_instance_fallback_to_first_node
+tests/test_workflow_execution.py::TestSpecifiedTimeTrigger::test_on_workflow_event_specified_time_creates_instance
+tests/test_workflow_execution.py::TestSpecifiedTimeTrigger::test_on_workflow_event_specified_time_skips_record_lock_and_lookup
+tests/test_workflow_execution.py::TestSpecifiedTimeTrigger::test_run_instance_specified_time_completes_without_record
+tests/test_workflow_scheduler_service.py::TestTriggerWorkflowRealEngine::test_trigger_workflow_runs_instance_without_record
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\services\workflow_execution_engine.py:238: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    instance = WorkflowInstance.query.get(instance_uuid)
+
+tests/test_workflow_execution.py::TestExecuteWebhookNodeErrors::test_execute_webhook_node_config_not_exist
+tests/test_workflow_execution.py::TestExecuteWebhookNodeFieldNames::test_execute_webhook_node_reads_webhook_id_field
+tests/test_workflow_execution.py::TestExecuteWebhookRecordTemplate::test_webhook_template_record_gets_actual_data
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\services\workflow_execution_engine.py:1184: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    webhook_config = WebhookConfig.query.get(self._to_uuid(webhook_config_id))
+
+tests/test_workflow_loop.py::TestResolveLoopDataSource::test_find_records_all_with_custom_result_variable
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\services\workflow_execution_engine.py:1327: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    node = WorkflowNode.query.get(self._to_uuid(node_id))
+
+tests/test_workflow_notify_node.py::TestNotifyFixedSource::test_sends_to_fixed_members
+  D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_workflow_notify_node.py:178: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    notification = Notification.query.get(uuid.UUID(result['notification_ids'][0]))
+
+tests/test_workflow_notify_node.py::TestNotifyFieldSource::test_resolves_member_field
+  D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_workflow_notify_node.py:228: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    notification = Notification.query.get(uuid.UUID(result['notification_ids'][0]))
+
+tests/test_workflow_notify_node.py::TestNotifyTriggerUserSource::test_resolves_trigger_actor
+  D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_workflow_notify_node.py:251: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    notification = Notification.query.get(uuid.UUID(result['notification_ids'][0]))
+
+tests/test_workflow_notify_node.py::TestNotifyRecordCreatorSource::test_resolves_record_creator
+  D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_workflow_notify_node.py:298: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    notification = Notification.query.get(uuid.UUID(result['notification_ids'][0]))
+
+tests/test_workflow_notify_node.py::TestNotifyBaseMembersSource::test_fans_out_to_base_members
+tests/test_workflow_notify_node.py::TestNotifyCombinations::test_multiple_sources_are_merged_and_deduplicated
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\services\workflow_execution_engine.py:955: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    workflow = Workflow.query.get(instance.workflow_id)
+
+tests/test_workflow_notify_node.py::TestNotifyBaseMembersSource::test_fans_out_to_base_members
+  D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_workflow_notify_node.py:325: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    notification = Notification.query.get(uuid.UUID(result['notification_ids'][0]))
+
+tests/test_workflow_notify_node.py::TestNotifyCombinations::test_renders_template_variables
+  D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_workflow_notify_node.py:392: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    notification = Notification.query.get(uuid.UUID(result['notification_ids'][0]))
+
+tests/test_workflow_notify_node.py::TestNotifyCombinations::test_escapes_html_in_body
+  D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_workflow_notify_node.py:409: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    notification = Notification.query.get(uuid.UUID(result['notification_ids'][0]))
+
+tests/test_workflow_notify_node.py::TestNotifyCombinations::test_truncates_overlong_title
+  D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_workflow_notify_node.py:445: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    notification = Notification.query.get(uuid.UUID(result['notification_ids'][0]))
+
+tests/test_workflow_routes.py::TestApprovalRoutes::test_get_approvals_list
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\routes\approvals.py:124: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    base = Base.query.get(base_id)
+
+tests/test_workflow_routes.py::TestApprovalRoutes::test_approve_task
+tests/test_workflow_routes.py::TestApprovalRoutes::test_non_assignee_cannot_approve
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\routes\approvals.py:62: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    return WorkflowTask.query.get(task_uuid)
+
+tests/test_workflow_send_email.py::TestResolveEmailRecipients::test_field_type_uuid_member_id_resolves_to_email
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\services\workflow_execution_engine.py:812: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    user = User.query.get(uuid_value)
+
+tests/test_workflow_send_email.py::TestResolveEmailRecipients::test_field_type_list_of_uuid_member_ids
+tests/test_workflow_send_email.py::TestResolveEmailRecipients::test_field_type_list_of_uuid_member_ids
+  D:\_dev\_src\github\smart_table\smarttable-backend\app\services\workflow_execution_engine.py:830: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    user = User.query.get(uuid_value)
+
+tests/test_workflow_service.py::TestWorkflowCRUD::test_delete_workflow_soft_delete
+  D:\_dev\_src\github\smart_table\smarttable-backend\tests\test_workflow_service.py:250: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    deleted = Workflow.query.get(workflow.id)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_attachment.py::TestAttachmentChunkedUpload::test_init_chunked_upload - assert 404 in [201, 200, 400]
+ +  where 404 = <WrapperTestResponse streamed [404 NOT FOUND]>.status_code
+FAILED tests/test_auth.py::TestAuth::test_register_success - assert 422 == 201
+ +  where 422 = <WrapperTestResponse streamed [422 UNPROCESSABLE ENTITY]>.status_code
+FAILED tests/test_auth.py::TestAuth::test_register_missing_fields - assert 422 == 400
+ +  where 422 = <WrapperTestResponse streamed [422 UNPROCESSABLE ENTITY]>.status_code
+FAILED tests/test_auth.py::TestAuth::test_register_invalid_email - assert 422 == 400
+ +  where 422 = <WrapperTestResponse streamed [422 UNPROCESSABLE ENTITY]>.status_code
+FAILED tests/test_auth.py::TestAuth::test_register_weak_password - assert 422 == 400
+ +  where 422 = <WrapperTestResponse streamed [422 UNPROCESSABLE ENTITY]>.status_code
+FAILED tests/test_auth.py::TestAuth::test_refresh_token - assert 401 == 200
+ +  where 401 = <WrapperTestResponse streamed [401 UNAUTHORIZED]>.status_code
+FAILED tests/test_auto_number.py::TestAutoNumberField::test_generate_auto_number_with_date - AssertionError: assert False
+ +  where False = <built-in method startswith of str object at 0x0000027695222470>('20261114-')
+ +    where <built-in method startswith of str object at 0x0000027695222470> = '20261113-1'.startswith
+FAILED tests/test_base.py::TestBase::test_get_bases_list - AssertionError: assert 'items' in [{'color': '#6366f1', 'created_at': '2026-11-13T17:59:02.217781+00:00', 'description': '这是一个测试多维表格', 'icon': 'table', ...}]
+FAILED tests/test_captcha.py::TestCaptchaService::test_verify_captcha_wrong - AssertionError: assert 'incorrect_captcha' == '验证码错误'
+  - 验证码错误
+  + incorrect_captcha
+FAILED tests/test_captcha.py::TestCaptchaService::test_verify_captcha_empty - AssertionError: assert 'enter_captcha' == '请输入验证码'
+  - 请输入验证码
+  + enter_captcha
+FAILED tests/test_captcha.py::TestCaptchaService::test_verify_captcha_expired - AssertionError: assert 'captcha_expi...esh_try_again' == '验证码已过期，请刷新重试'
+  - 验证码已过期，请刷新重试
+  + captcha_expired_refresh_try_again
+FAILED tests/test_captcha.py::TestCaptchaService::test_test_captcha_bypass - assert False is True
+FAILED tests/test_create_base.py::test_create_base - sqlalchemy.exc.OperationalError: (sqlite3.OperationalError) no such column: users.username
+[SQL: SELECT users.id AS users_id, users.email AS users_email, users.username AS users_username, users.password_hash AS users_password_hash, users.name AS users_name, users.avatar AS users_avatar, users.role AS users_role, users.status AS users_status, users.email_verified AS users_email_verified, users.verification_token AS users_verification_token, users.verification_token_expires AS users_verification_token_expires, users.reset_token AS users_reset_token, users.reset_token_expires AS users_reset_token_expires, users.must_change_password AS users_must_change_password, users.password_changed_at AS users_password_changed_at, users.last_login_at AS users_last_login_at, users.created_at AS users_created_at, users.updated_at AS users_updated_at, users.notification_prefs AS users_notification_prefs 
+FROM users
+ LIMIT ? OFFSET ?]
+[parameters: (1, 0)]
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+FAILED tests/test_dashboard.py::TestDashboard::test_create_dashboard - assert 404 == 201
+ +  where 404 = <WrapperTestResponse streamed [404 NOT FOUND]>.status_code
+FAILED tests/test_dashboard.py::TestDashboard::test_create_dashboard_without_auth - assert 404 == 401
+ +  where 404 = <WrapperTestResponse streamed [404 NOT FOUND]>.status_code
+FAILED tests/test_dashboard.py::TestDashboard::test_get_dashboards_list - AssertionError: assert 'items' in []
+FAILED tests/test_dashboard.py::TestDashboard::test_get_dashboard_detail - KeyError: 'data'
+FAILED tests/test_dashboard.py::TestDashboard::test_update_dashboard - KeyError: 'data'
+FAILED tests/test_dashboard.py::TestDashboard::test_delete_dashboard - KeyError: 'data'
+FAILED tests/test_dashboard.py::TestDashboard::test_create_dashboard_with_widgets - assert 404 in [201, 200]
+ +  where 404 = <WrapperTestResponse streamed [404 NOT FOUND]>.status_code
+FAILED tests/test_document.py::TestDocumentAPI::test_create_document - assert 200 == 201
+ +  where 200 = <WrapperTestResponse streamed [200 OK]>.status_code
+FAILED tests/test_document.py::TestDocumentAPI::test_get_nonexistent_document - assert 500 == 404
+ +  where 500 = <WrapperTestResponse streamed [500 INTERNAL SERVER ERROR]>.status_code
+FAILED tests/test_document.py::TestDocumentAPI::test_delete_document - assert 200 == 204
+ +  where 200 = <WrapperTestResponse streamed [200 OK]>.status_code
+FAILED tests/test_document.py::TestDocumentAPI::test_delete_nonexistent_document - assert 500 == 404
+ +  where 500 = <WrapperTestResponse streamed [500 INTERNAL SERVER ERROR]>.status_code
+FAILED tests/test_document.py::TestDocumentAPI::test_permission_check_viewer_cannot_create - assert 200 == 403
+ +  where 200 = <WrapperTestResponse streamed [200 OK]>.status_code
+FAILED tests/test_document_versions.py::test_restore_version - assert 404 == 200
+ +  where 404 = <WrapperTestResponse streamed [404 NOT FOUND]>.status_code
+FAILED tests/test_email_integration.py::TestUserRegistrationEmailVerification::test_email_verification_with_valid_token - TypeError: can't compare offset-naive and offset-aware datetimes
+FAILED tests/test_email_integration.py::TestUserRegistrationEmailVerification::test_email_verification_with_expired_token - TypeError: can't compare offset-naive and offset-aware datetimes
+FAILED tests/test_email_integration.py::TestAccountManagementNotifications::test_suspend_user_sends_notification - AssertionError: Expected 'send_email_quick' to have been called once. Called 0 times.
+FAILED tests/test_email_integration.py::TestAccountManagementNotifications::test_activate_user_sends_notification - assert None is not None
+FAILED tests/test_email_integration.py::TestAccountManagementNotifications::test_reset_password_sends_notification - AssertionError: Expected 'send_email_quick' to have been called once. Called 0 times.
+FAILED tests/test_email_integration.py::TestShareMemberNotifications::test_add_member_sends_invitation_email - sqlalchemy.orm.exc.DetachedInstanceError: Instance <Base at 0x2769bb39d00> is not bound to a Session; attribute refresh operation cannot proceed (Background on this error at: https://sqlalche.me/e/20/bhk3)
+FAILED tests/test_email_integration.py::TestShareMemberNotifications::test_remove_member_sends_notification_email - sqlalchemy.orm.exc.DetachedInstanceError: Instance <Base at 0x2769a75c050> is not bound to a Session; attribute refresh operation cannot proceed (Background on this error at: https://sqlalche.me/e/20/bhk3)
+FAILED tests/test_email_integration.py::TestShareMemberNotifications::test_update_member_role_sends_notification_email - sqlalchemy.orm.exc.DetachedInstanceError: Instance <Base at 0x2769bb95400> is not bound to a Session; attribute refresh operation cannot proceed (Background on this error at: https://sqlalche.me/e/20/bhk3)
+FAILED tests/test_email_integration.py::TestEmailLogCreation::test_send_email_creates_log - AttributeError: <class 'app.services.email_log_service.EmailLogService'> does not have the attribute 'create_log'
+FAILED tests/test_email_integration.py::TestEmailTemplateInitialization::test_default_templates_created_on_startup - AssertionError: 模板 account_suspended 应该存在
+assert 'account_suspended' in ['user_registration', 'password_reset', 'invitation', 'notification', 'comment_mention', 'comment_reply', ...]
+FAILED tests/test_email_services.py::TestEmailConfigService::test_is_email_enabled_with_config - TypeError: 'key' is an invalid keyword argument for SystemConfig
+FAILED tests/test_email_services.py::TestEmailConfigService::test_get_config_value - TypeError: 'key' is an invalid keyword argument for SystemConfig
+FAILED tests/test_email_services.py::TestEmailConfigService::test_get_config_value_not_exist - AttributeError: type object 'EmailConfigService' has no attribute '_get_config_value'
+FAILED tests/test_email_services.py::TestEmailConfigService::test_get_smtp_config - TypeError: 'key' is an invalid keyword argument for SystemConfig
+FAILED tests/test_email_services.py::TestEmailLogService::test_create_log - AttributeError: type object 'EmailLogService' has no attribute 'create_log'
+FAILED tests/test_email_services.py::TestEmailLogService::test_update_log_status - AttributeError: type object 'EmailLogService' has no attribute 'create_log'
+FAILED tests/test_email_services.py::TestEmailLogService::test_get_logs_by_status - AttributeError: type object 'EmailLogService' has no attribute 'create_log'
+FAILED tests/test_email_services.py::TestEmailLogService::test_get_pending_logs - AttributeError: type object 'EmailLogService' has no attribute 'create_log'
+FAILED tests/test_email_services.py::TestEmailRetryService::test_should_retry - AttributeError: type object 'EmailLogService' has no attribute 'create_log'
+FAILED tests/test_email_services.py::TestEmailRetryService::test_should_not_retry_max_reached - AttributeError: type object 'EmailLogService' has no attribute 'create_log'
+FAILED tests/test_email_services.py::TestEmailRetryService::test_increment_retry_count - AttributeError: type object 'EmailLogService' has no attribute 'create_log'
+FAILED tests/test_email_services.py::TestEmailRetryService::test_process_failed_emails - AttributeError: type object 'EmailLogService' has no attribute 'create_log'
+FAILED tests/test_email_services.py::TestEmailSenderService::test_send_email_success - TypeError: EmailSenderService.send_email() missing 1 required positional argument: 'self'
+FAILED tests/test_email_services.py::TestEmailSenderService::test_send_email_disabled - TypeError: EmailSenderService.send_email() missing 1 required positional argument: 'self'
+FAILED tests/test_email_services.py::TestEmailSenderService::test_send_email_quick - AssertionError: Expected 'send_email' to have been called once. Called 0 times.
+FAILED tests/test_import_export.py::TestImportExport::test_import_csv_preview - assert 405 in [200, 400]
+ +  where 405 = <WrapperTestResponse streamed [405 METHOD NOT ALLOWED]>.status_code
+FAILED tests/test_import_export.py::TestImportExport::test_import_empty_file_rejected - assert 405 in [400, 422]
+ +  where 405 = <WrapperTestResponse streamed [405 METHOD NOT ALLOWED]>.status_code
+FAILED tests/test_import_export.py::TestImportExport::test_import_unsupported_format - assert 405 in [400, 422]
+ +  where 405 = <WrapperTestResponse streamed [405 METHOD NOT ALLOWED]>.status_code
+FAILED tests/test_import_export.py::TestImportExport::test_export_invalid_table - assert 500 in [400, 404]
+ +  where 500 = <WrapperTestResponse streamed [500 INTERNAL SERVER ERROR]>.status_code
+FAILED tests/test_link_detail_api.py::TestGetLinkedRecordsDetail::test_nonexistent_field - TypeError: cannot unpack non-iterable NoneType object
+FAILED tests/test_link_detail_api.py::TestGetLinkedRecordsDetail::test_non_link_field - TypeError: cannot unpack non-iterable NoneType object
+FAILED tests/test_link_detail_api.py::TestGetLinkedRecordsDetail::test_no_link_relation - TypeError: cannot unpack non-iterable NoneType object
+FAILED tests/test_link_detail_api.py::TestCreateAndLinkRecord::test_one_to_one_constraint - AssertionError: assert {'link_value': {'created_at': '2026-11-13T18:02:20.989192', 'id': 'afa9b5b2-b519-403e-b962-ee7c8ee9dfef', 'link_relati...': '522d8b4a-61ab-42a7-ad4b-6d31685a93a3', 'id': '13dbf9d4-5e6e-4229-a30f-e250363989a8', 'primary_value': '新子任务', ...}} is None
+FAILED tests/test_link_detail_api.py::TestCreateAndLinkRecord::test_nonexistent_field - TypeError: cannot unpack non-iterable NoneType object
+FAILED tests/test_link_detail_api.py::TestLinkDetailAPI::test_get_details_api_non_link_field - assert 500 == 400
+ +  where 500 = <WrapperTestResponse streamed [500 INTERNAL SERVER ERROR]>.status_code
+FAILED tests/test_notification_integration.py::TestNotificationUserAPI::test_notification_list_api - assert 401 == 200
+ +  where 401 = <WrapperTestResponse streamed [401 UNAUTHORIZED]>.status_code
+FAILED tests/test_notification_integration.py::TestNotificationUserAPI::test_unread_count_api - assert 401 == 200
+ +  where 401 = <WrapperTestResponse streamed [401 UNAUTHORIZED]>.status_code
+FAILED tests/test_notification_integration.py::TestNotificationUserAPI::test_mark_as_read_api - assert 401 == 200
+ +  where 401 = <WrapperTestResponse streamed [401 UNAUTHORIZED]>.status_code
+FAILED tests/test_notification_integration.py::TestNotificationUserAPI::test_mark_all_as_read_api - assert 401 == 200
+ +  where 401 = <WrapperTestResponse streamed [401 UNAUTHORIZED]>.status_code
+FAILED tests/test_notification_integration.py::TestNotificationUserAPI::test_notification_detail_api - assert 401 == 200
+ +  where 401 = <WrapperTestResponse streamed [401 UNAUTHORIZED]>.status_code
+FAILED tests/test_notification_integration.py::TestNotificationUserAPI::test_delete_notification_api - assert 401 == 200
+ +  where 401 = <WrapperTestResponse streamed [401 UNAUTHORIZED]>.status_code
+FAILED tests/test_notification_integration.py::TestNotificationTriggers::test_registration_triggers_notification - assert 422 == 201
+ +  where 422 = <WrapperTestResponse streamed [422 UNPROCESSABLE ENTITY]>.status_code
+FAILED tests/test_notification_integration.py::TestNotificationAdminAPI::test_admin_notification_logs_api - AssertionError: 登录失败: {'code': 403, 'error': 'captcha_invalid', 'message': '验证码错误: 验证码已过期，请刷新重试', 'success': False}
+assert 403 == 200
+ +  where 403 = <WrapperTestResponse streamed [403 FORBIDDEN]>.status_code
+FAILED tests/test_notification_integration.py::TestNotificationAdminAPI::test_admin_notification_stats_api - AssertionError: 登录失败: {'code': 403, 'error': 'captcha_invalid', 'message': '验证码错误: 验证码已过期，请刷新重试', 'success': False}
+assert 403 == 200
+ +  where 403 = <WrapperTestResponse streamed [403 FORBIDDEN]>.status_code
+FAILED tests/test_notification_integration.py::TestNotificationAdminAPI::test_admin_retry_notification_api - AssertionError: 登录失败: {'code': 403, 'error': 'captcha_invalid', 'message': '验证码错误: 验证码已过期，请刷新重试', 'success': False}
+assert 403 == 200
+ +  where 403 = <WrapperTestResponse streamed [403 FORBIDDEN]>.status_code
+FAILED tests/test_notification_service.py::TestNotificationRetryService::test_retry_max_count - AssertionError: assert '最大重试次数' in 'maximum_retry_count_reached'
+FAILED tests/test_oauth.py::TestOAuthAppManagement::test_delete_app - assert 400 == 200
+ +  where 400 = <WrapperTestResponse streamed [400 BAD REQUEST]>.status_code
+FAILED tests/test_oauth.py::TestOpenAPI::test_record_crud_flow - assert 400 == 201
+ +  where 400 = <WrapperTestResponse streamed [400 BAD REQUEST]>.status_code
+FAILED tests/test_oauth.py::TestTokenRevocation::test_revoke_token_then_rejected - assert 200 == 401
+ +  where 200 = <WrapperTestResponse streamed [200 OK]>.status_code
+FAILED tests/test_oauth.py::TestTokenRevocation::test_revoke_all_app_tokens - assert 200 == 401
+ +  where 200 = <WrapperTestResponse streamed [200 OK]>.status_code
+FAILED tests/test_oauth.py::TestOpenAPIExtended::test_search_records - assert 400 == 201
+ +  where 400 = <WrapperTestResponse streamed [400 BAD REQUEST]>.status_code
+FAILED tests/test_plugin_endpoints_e2e.py::test_full_lifecycle_upload_enable_install_call - AssertionError: {'code': 400, 'details': [{'detail': '当前宿主版本 1.6.10.5 不满足插件声明的引擎兼容范围 engines.smarttable: ">=1.0.0"（请升级宿主或放宽插件声明）', 'er...: 'ENGINES_INCOMPATIBLE', 'message': '当前宿主版本 1.6.10.5 不满足插件声明的引擎兼容范围 engines.smarttable: ">=1.0.0"（请升级宿主或放宽插件声明）', ...}
+assert 400 == 200
+ +  where 400 = <WrapperTestResponse streamed [400 BAD REQUEST]>.status_code
+FAILED tests/test_plugin_endpoints_e2e.py::test_plugin_error_messages_follow_accept_language - AssertionError: assert 400 == 200
+ +  where 400 = <WrapperTestResponse streamed [400 BAD REQUEST]>.status_code
+ +    where <WrapperTestResponse streamed [400 BAD REQUEST]> = <bound method Client.post of <FlaskClient <Flask 'app'>>>('/api/plugins/upload', headers={'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJmcmVzaCI6ZmFsc2UsImlhdCI6MTc5NDU5MzA5NywianRpIjoiYWE...1hMzAwLTc4YzQyMDg4MzEzNSIsImV4cCI6MTc5NDU5NjY5NywidG9rZW5fdmVyc2lvbiI6MH0.BSU56QSOP7i4gsqpaY788JpND_fANDzJff2QFSNkgHA'}, data={'package': (<_io.BytesIO object at 0x000002769EF8A1B0>, 'echo.stplugin.zip')})
+ +      where <bound method Client.post of <FlaskClient <Flask 'app'>>> = <FlaskClient <Flask 'app'>>.post
+FAILED tests/test_realtime_disabled.py::TestRealtimeDisabled::test_realtime_status_disabled - assert 500 == 200
+ +  where 500 = <WrapperTestResponse 218 bytes [500 INTERNAL SERVER ERROR]>.status_code
+FAILED tests/test_realtime_disabled.py::TestRealtimeDisabled::test_bases_api_works - assert 401 == 200
+ +  where 401 = <WrapperTestResponse streamed [401 UNAUTHORIZED]>.status_code
+FAILED tests/test_realtime_disabled.py::TestRealtimeDisabled::test_auth_api_works - assert 422 == 200
+ +  where 422 = <WrapperTestResponse streamed [422 UNPROCESSABLE ENTITY]>.status_code
+FAILED tests/test_realtime_disabled.py::TestRealtimeDisabledCRUD::test_create_base - assert 401 == 201
+ +  where 401 = <WrapperTestResponse streamed [401 UNAUTHORIZED]>.status_code
+FAILED tests/test_realtime_disabled.py::TestRealtimeDisabledCRUD::test_create_table - KeyError: 'data'
+FAILED tests/test_realtime_disabled.py::TestRealtimeDisabledCRUD::test_create_record - KeyError: 'data'
+FAILED tests/test_realtime_enabled.py::TestRealtimeEnabled::test_realtime_status_enabled - assert 500 == 200
+ +  where 500 = <WrapperTestResponse 218 bytes [500 INTERNAL SERVER ERROR]>.status_code
+FAILED tests/test_realtime_enabled.py::TestSocketIOConnection::test_socketio_connect_with_valid_token - assert False
+ +  where False = <bound method SocketIOTestClient.is_connected of <flask_socketio.test_client.SocketIOTestClient object at 0x000002769E9A00E0>>()
+ +    where <bound method SocketIOTestClient.is_connected of <flask_socketio.test_client.SocketIOTestClient object at 0x000002769E9A00E0>> = <flask_socketio.test_client.SocketIOTestClient object at 0x000002769E9A00E0>.is_connected
+FAILED tests/test_realtime_enabled.py::TestSocketIOConnection::test_socketio_connect_without_token - RuntimeError: not connected
+FAILED tests/test_realtime_enabled.py::TestCollaborationService::test_broadcast_if_enabled - assert None is not None
+FAILED tests/test_realtime_enabled.py::TestCollaborationService::test_join_room - sqlalchemy.exc.StatementError: (builtins.ValueError) Invalid UUID string: test-user-id
+[SQL: SELECT users.id AS users_id, users.email AS users_email, users.username AS users_username, users.password_hash AS users_password_hash, users.name AS users_name, users.avatar AS users_avatar, users.role AS users_role, users.status AS users_status, users.email_verified AS users_email_verified, users.verification_token AS users_verification_token, users.verification_token_expires AS users_verification_token_expires, users.reset_token AS users_reset_token, users.reset_token_expires AS users_reset_token_expires, users.must_change_password AS users_must_change_password, users.password_changed_at AS users_password_changed_at, users.last_login_at AS users_last_login_at, users.created_at AS users_created_at, users.updated_at AS users_updated_at, users.notification_prefs AS users_notification_prefs 
+FROM users 
+WHERE users.id = ?]
+[parameters: [{'pk_1': 'test-user-id'}]]
+FAILED tests/test_realtime_enabled.py::TestCollaborationService::test_leave_room - sqlalchemy.exc.StatementError: (builtins.ValueError) Invalid UUID string: test-user-id
+[SQL: SELECT users.id AS users_id, users.email AS users_email, users.username AS users_username, users.password_hash AS users_password_hash, users.name AS users_name, users.avatar AS users_avatar, users.role AS users_role, users.status AS users_status, users.email_verified AS users_email_verified, users.verification_token AS users_verification_token, users.verification_token_expires AS users_verification_token_expires, users.reset_token AS users_reset_token, users.reset_token_expires AS users_reset_token_expires, users.must_change_password AS users_must_change_password, users.password_changed_at AS users_password_changed_at, users.last_login_at AS users_last_login_at, users.created_at AS users_created_at, users.updated_at AS users_updated_at, users.notification_prefs AS users_notification_prefs 
+FROM users 
+WHERE users.id = ?]
+[parameters: [{'pk_1': 'test-user-id'}]]
+FAILED tests/test_realtime_enabled.py::TestCollaborationService::test_acquire_and_release_lock - sqlalchemy.exc.StatementError: (builtins.ValueError) Invalid UUID string: user-1
+[SQL: SELECT users.id AS users_id, users.email AS users_email, users.username AS users_username, users.password_hash AS users_password_hash, users.name AS users_name, users.avatar AS users_avatar, users.role AS users_role, users.status AS users_status, users.email_verified AS users_email_verified, users.verification_token AS users_verification_token, users.verification_token_expires AS users_verification_token_expires, users.reset_token AS users_reset_token, users.reset_token_expires AS users_reset_token_expires, users.must_change_password AS users_must_change_password, users.password_changed_at AS users_password_changed_at, users.last_login_at AS users_last_login_at, users.created_at AS users_created_at, users.updated_at AS users_updated_at, users.notification_prefs AS users_notification_prefs 
+FROM users 
+WHERE users.id = ?]
+[parameters: [{'pk_1': 'user-1'}]]
+FAILED tests/test_realtime_enabled.py::TestCollaborationService::test_update_user_view - redis.exceptions.ResponseError: wrong number of arguments for 'hset' command
+FAILED tests/test_realtime_enabled.py::TestCollaborationService::test_update_user_cell - redis.exceptions.ResponseError: wrong number of arguments for 'hset' command
+FAILED tests/test_realtime_enabled.py::TestOptimisticLock::test_update_record_conflict - KeyError: 'data'
+FAILED tests/test_realtime_enabled.py::TestOptimisticLock::test_update_record_success_with_matching_timestamp - KeyError: 'data'
+FAILED tests/test_record.py::TestRecord::test_create_record - assert 404 == 201
+ +  where 404 = <WrapperTestResponse streamed [404 NOT FOUND]>.status_code
+FAILED tests/test_record.py::TestRecord::test_get_records_list - assert 404 == 200
+ +  where 404 = <WrapperTestResponse streamed [404 NOT FOUND]>.status_code
+FAILED tests/test_record.py::TestRecord::test_get_records_pagination - assert 404 == 200
+ +  where 404 = <WrapperTestResponse streamed [404 NOT FOUND]>.status_code
+FAILED tests/test_record.py::TestRecord::test_get_record_detail - assert 404 == 200
+ +  where 404 = <WrapperTestResponse streamed [404 NOT FOUND]>.status_code
+FAILED tests/test_record.py::TestRecord::test_update_record - assert 404 == 200
+ +  where 404 = <WrapperTestResponse streamed [404 NOT FOUND]>.status_code
+FAILED tests/test_record.py::TestRecord::test_delete_record - assert 404 == 200
+ +  where 404 = <WrapperTestResponse streamed [404 NOT FOUND]>.status_code
+FAILED tests/test_record.py::TestRecord::test_batch_create_records - assert 404 in [200, 201]
+ +  where 404 = <WrapperTestResponse streamed [404 NOT FOUND]>.status_code
+FAILED tests/test_record.py::TestRecord::test_batch_update_records - assert 404 == 200
+ +  where 404 = <WrapperTestResponse streamed [404 NOT FOUND]>.status_code
+FAILED tests/test_record.py::TestRecord::test_batch_delete_records - assert 404 == 200
+ +  where 404 = <WrapperTestResponse streamed [404 NOT FOUND]>.status_code
+FAILED tests/test_record.py::TestRecord::test_search_records - assert 404 == 200
+ +  where 404 = <WrapperTestResponse streamed [404 NOT FOUND]>.status_code
+FAILED tests/test_static_serving.py::TestConfigureStaticServing::test_registers_catch_all_route - assert True is False
+FAILED tests/test_table.py::TestTable::test_create_table - assert 404 == 201
+ +  where 404 = <WrapperTestResponse streamed [404 NOT FOUND]>.status_code
+FAILED tests/test_table.py::TestTable::test_get_tables_list - AssertionError: assert 'items' in [{'base_id': '9e75ba04-08f9-44db-b0a6-dcc0669f5840', 'created_at': '2026-11-13T18:05:47.214740+00:00', 'description': '这是一个测试表格', 'field_count': 0, ...}]
+FAILED tests/test_table.py::TestTable::test_reorder_tables - assert 405 in [200, 400]
+ +  where 405 = <WrapperTestResponse streamed [405 METHOD NOT ALLOWED]>.status_code
+FAILED tests/test_view.py::TestView::test_create_view - assert 404 == 201
+ +  where 404 = <WrapperTestResponse streamed [404 NOT FOUND]>.status_code
+FAILED tests/test_view.py::TestView::test_create_gallery_view - assert 404 == 201
+ +  where 404 = <WrapperTestResponse streamed [404 NOT FOUND]>.status_code
+FAILED tests/test_view.py::TestView::test_create_kanban_view - assert 404 == 201
+ +  where 404 = <WrapperTestResponse streamed [404 NOT FOUND]>.status_code
+FAILED tests/test_view.py::TestView::test_get_views_list - assert 404 == 200
+ +  where 404 = <WrapperTestResponse streamed [404 NOT FOUND]>.status_code
+FAILED tests/test_view.py::TestView::test_get_view_detail - assert 404 == 200
+ +  where 404 = <WrapperTestResponse streamed [404 NOT FOUND]>.status_code
+FAILED tests/test_view.py::TestView::test_update_view - assert 404 == 200
+ +  where 404 = <WrapperTestResponse streamed [404 NOT FOUND]>.status_code
+FAILED tests/test_view.py::TestView::test_duplicate_view - assert 404 == 201
+ +  where 404 = <WrapperTestResponse streamed [404 NOT FOUND]>.status_code
+FAILED tests/test_view.py::TestView::test_delete_view - KeyError: 'data'
+FAILED tests/test_view.py::TestView::test_reorder_views - assert 404 == 200
+ +  where 404 = <WrapperTestResponse streamed [404 NOT FOUND]>.status_code
+FAILED tests/test_view.py::TestView::test_get_view_types - assert 404 == 200
+ +  where 404 = <WrapperTestResponse streamed [404 NOT FOUND]>.status_code
+FAILED tests/test_view.py::TestView::test_set_default_nonexistent_view - assert 500 == 404
+ +  where 500 = <WrapperTestResponse streamed [500 INTERNAL SERVER ERROR]>.status_code
+FAILED tests/test_webhook_service.py::TestRetryPending::test_retry_pending_succeeds_on_second_attempt - assert 0 == 1
+FAILED tests/test_workflow_execution.py::TestExecuteConditionNode::test_condition_node_true_executes_next_node - sqlalchemy.exc.IntegrityError: (sqlite3.IntegrityError) FOREIGN KEY constraint failed
+[SQL: UPDATE records SET "values"=?, updated_by=?, updated_at=? WHERE records.id = ?]
+[parameters: ('{"90f0af36-051f-4ba0-8abc-e987ec601c49": "\\u5df2\\u66f4\\u65b0"}', '00000000-0000-0000-0000-000000000000', '2026-11-13 18:07:21.990538', '9a5016f6-a56e-42f6-80d6-db13a54b89b1')]
+(Background on this error at: https://sqlalche.me/e/20/gkpj)
+FAILED tests/test_workflow_execution.py::TestExecuteConditionNode::test_condition_node_multiple_branches_first_match - sqlalchemy.exc.IntegrityError: (sqlite3.IntegrityError) FOREIGN KEY constraint failed
+[SQL: UPDATE records SET "values"=?, updated_by=?, updated_at=? WHERE records.id = ?]
+[parameters: ('{"62b64c50-0ecc-4fc3-b948-510c10e57bcc": "\\u5df2\\u66f4\\u65b0\\u4e3a\\u4e2d"}', '00000000-0000-0000-0000-000000000000', '2026-11-13 18:07:25.328691', '45d63c3d-bf73-47d9-8e99-3b8bb9cbf9c5')]
+(Background on this error at: https://sqlalche.me/e/20/gkpj)
+FAILED tests/test_workflow_execution.py::TestExecuteConditionNode::test_condition_node_legacy_config_migration - sqlalchemy.exc.IntegrityError: (sqlite3.IntegrityError) FOREIGN KEY constraint failed
+[SQL: UPDATE records SET "values"=?, updated_by=?, updated_at=? WHERE records.id = ?]
+[parameters: ('{"228f1f51-fc41-4ba7-887b-d42e025cdcdd": "\\u5df2\\u66f4\\u65b0"}', '00000000-0000-0000-0000-000000000000', '2026-11-13 18:07:26.555438', 'ba904711-d685-4afd-85bb-a7f35b25cbb5')]
+(Background on this error at: https://sqlalche.me/e/20/gkpj)
+FAILED tests/test_workflow_execution.py::TestExecuteConditionNode::test_condition_node_default_branch_executes_when_no_match - sqlalchemy.exc.IntegrityError: (sqlite3.IntegrityError) FOREIGN KEY constraint failed
+[SQL: UPDATE records SET "values"=?, updated_by=?, updated_at=? WHERE records.id = ?]
+[parameters: ('{"291664fc-66a1-4efe-a634-e9bbf9ad4cb6": "\\u5df2\\u66f4\\u65b0\\u4e3a\\u9ed8\\u8ba4"}', '00000000-0000-0000-0000-000000000000', '2026-11-13 18:07:27.788897', 'f625648f-e60e-4c41-9b40-d097eaa18c43')]
+(Background on this error at: https://sqlalche.me/e/20/gkpj)
+FAILED tests/test_workflow_execution.py::TestExecuteConditionNode::test_condition_node_default_branch_skipped_when_condition_matches - sqlalchemy.exc.IntegrityError: (sqlite3.IntegrityError) FOREIGN KEY constraint failed
+[SQL: UPDATE records SET "values"=?, updated_by=?, updated_at=? WHERE records.id = ?]
+[parameters: ('{"2df7d43c-7a5a-4601-b2c6-aa3a079e992f": "\\u5df2\\u66f4\\u65b0\\u4e3a\\u9ad8"}', '00000000-0000-0000-0000-000000000000', '2026-11-13 18:07:28.878783', '5162cce4-2525-444f-bd99-d7fbb1986081')]
+(Background on this error at: https://sqlalche.me/e/20/gkpj)
+FAILED tests/test_workflow_execution.py::TestExecuteUpdateRecord::test_execute_update_record - sqlalchemy.exc.IntegrityError: (sqlite3.IntegrityError) FOREIGN KEY constraint failed
+[SQL: UPDATE records SET "values"=?, updated_by=?, updated_at=? WHERE records.id = ?]
+[parameters: ('{"3118b5ae-c4be-4aae-a455-94fcc336fb69": "\\u5df2\\u66f4\\u65b0"}', '00000000-0000-0000-0000-000000000000', '2026-11-13 18:07:30.985453', '54b04420-2066-4239-a898-79867e462280')]
+(Background on this error at: https://sqlalche.me/e/20/gkpj)
+FAILED tests/test_workflow_execution.py::TestExecuteUpdateRecord::test_execute_update_record_with_template - sqlalchemy.exc.IntegrityError: (sqlite3.IntegrityError) FOREIGN KEY constraint failed
+[SQL: UPDATE records SET "values"=?, updated_by=?, updated_at=? WHERE records.id = ?]
+[parameters: ('{"7d78c613-501a-48ea-a0a4-09224fc0d4ea": "\\u5df2\\u5b8c\\u6210"}', '00000000-0000-0000-0000-000000000000', '2026-11-13 18:07:32.130894', 'e7c3c3b4-a824-49c9-a4c5-bd9b9ba1f757')]
+(Background on this error at: https://sqlalche.me/e/20/gkpj)
+FAILED tests/test_workflow_execution.py::TestExecuteUpdateRecord::test_execute_update_record_skips_empty_field_id - sqlalchemy.exc.IntegrityError: (sqlite3.IntegrityError) FOREIGN KEY constraint failed
+[SQL: UPDATE records SET "values"=?, updated_by=?, updated_at=? WHERE records.id = ?]
+[parameters: ('{"3dbbbec1-3f61-4b94-bbf8-bff2f9b2b5b1": "\\u6709\\u6548\\u503c"}', '00000000-0000-0000-0000-000000000000', '2026-11-13 18:07:35.006462', '21bb3556-319c-454f-8c2a-297fcece3788')]
+(Background on this error at: https://sqlalche.me/e/20/gkpj)
+FAILED tests/test_workflow_execution.py::TestUpdateRecordRelatedUpdates::test_update_record_related_update_via_link_field - sqlalchemy.exc.IntegrityError: (sqlite3.IntegrityError) FOREIGN KEY constraint failed
+[SQL: UPDATE records SET "values"=?, updated_by=?, updated_at=? WHERE records.id = ?]
+[parameters: ('{"146127ce-1b01-4ea1-b89d-56b5964d6e9c": "\\u65b0\\u72b6\\u6001", "1283a5d9-215b-4cd3-bfa6-4287763a3c59": ["7ba2ebbc-eb72-4120-b776-28397be4521a"]}', '00000000-0000-0000-0000-000000000000', '2026-11-13 18:07:36.240560', '97e00d11-046d-4580-9990-771c7dba03c1')]
+(Background on this error at: https://sqlalche.me/e/20/gkpj)
+FAILED tests/test_workflow_execution.py::TestUpdateRecordRelatedUpdates::test_update_record_related_update_condition_trigger_skips - sqlalchemy.exc.IntegrityError: (sqlite3.IntegrityError) FOREIGN KEY constraint failed
+[SQL: UPDATE records SET "values"=?, updated_by=?, updated_at=? WHERE records.id = ?]
+[parameters: ('{"9f4b4861-a6fa-4507-9356-8619319dee2a": "\\u65b0\\u72b6\\u6001", "418cc139-96b1-40f5-a3c4-1ae954b6c5d8": ["3186c480-4dad-41ae-86cc-26c682d6666f"]}', '00000000-0000-0000-0000-000000000000', '2026-11-13 18:07:37.625269', '30362876-4da3-4012-a417-f772d0706fc7')]
+(Background on this error at: https://sqlalche.me/e/20/gkpj)
+FAILED tests/test_workflow_execution.py::TestUpdateRecordRelatedUpdates::test_update_record_related_update_with_conditions_filter - sqlalchemy.exc.IntegrityError: (sqlite3.IntegrityError) FOREIGN KEY constraint failed
+[SQL: UPDATE records SET "values"=?, updated_by=?, updated_at=? WHERE records.id = ?]
+[parameters: ('{"f9ff2398-0904-42bd-b574-91622ae7d354": "\\u65b0\\u72b6\\u6001", "2f2ae493-c55a-40f9-8e5e-e9df0a4e74a7": ["1d9ad01b-7fe9-4e20-8adf-aba5a2113351", "5d0d0ce6-ad1a-4b41-b749-bbc1adb8edb8"]}', '00000000-0000-0000-0000-000000000000', '2026-11-13 18:07:38.822201', '01791bb4-0670-4e0b-824f-903cb81ecf32')]
+(Background on this error at: https://sqlalche.me/e/20/gkpj)
+FAILED tests/test_workflow_execution.py::TestUpdateRecordRelatedUpdates::test_update_record_related_update_trigger_condition_and_skips_when_any_fails - sqlalchemy.exc.IntegrityError: (sqlite3.IntegrityError) FOREIGN KEY constraint failed
+[SQL: UPDATE records SET "values"=?, updated_by=?, updated_at=? WHERE records.id = ?]
+[parameters: ('{"0f688283-62e0-4b39-8f07-d58fce47d3ee": "\\u65b0\\u72b6\\u6001", "8bba52ad-fb72-4526-ae1f-1ccd3a5d0829": ["0e0093e0-096d-45f8-a7e3-21617b51e443"]}', '00000000-0000-0000-0000-000000000000', '2026-11-13 18:07:42.274970', '3f628a9a-56db-4d05-a5f9-00594f60b429')]
+(Background on this error at: https://sqlalche.me/e/20/gkpj)
+FAILED tests/test_workflow_execution.py::TestUpdateRecordRelatedUpdates::test_update_record_related_update_trigger_condition_or_fires_when_any_matches - sqlalchemy.exc.IntegrityError: (sqlite3.IntegrityError) FOREIGN KEY constraint failed
+[SQL: UPDATE records SET "values"=?, updated_by=?, updated_at=? WHERE records.id = ?]
+[parameters: ('{"0d8c7a4b-13de-44d2-8fbd-d4db8392f620": "\\u65b0\\u72b6\\u6001", "49fdfde7-afb6-40ea-95af-28907285f4cf": ["f014f0b7-3bab-4a65-980b-f1257a5e8170"]}', '00000000-0000-0000-0000-000000000000', '2026-11-13 18:07:43.321803', '7a56bc7c-068f-410c-a747-2ea40454b6e5')]
+(Background on this error at: https://sqlalche.me/e/20/gkpj)
+FAILED tests/test_workflow_execution.py::TestUpdateRecordRelatedUpdates::test_update_record_related_update_trigger_condition_and_fires_when_all_match - sqlalchemy.exc.IntegrityError: (sqlite3.IntegrityError) FOREIGN KEY constraint failed
+[SQL: UPDATE records SET "values"=?, updated_by=?, updated_at=? WHERE records.id = ?]
+[parameters: ('{"76e099c4-f5da-42e9-9757-38d5487f5118": "\\u65b0\\u72b6\\u6001", "66a04dc5-5ce1-4164-95a6-62c81bd68c89": ["e573018f-41d3-4e7c-af60-025b705ad6c8"]}', '00000000-0000-0000-0000-000000000000', '2026-11-13 18:07:44.377206', '41e9f2fc-caa9-482b-bcd0-c0a3836556d4')]
+(Background on this error at: https://sqlalche.me/e/20/gkpj)
+FAILED tests/test_workflow_execution.py::TestUpdateRecordRelatedUpdates::test_update_record_related_update_conditions_and_excludes_when_any_fails - sqlalchemy.exc.IntegrityError: (sqlite3.IntegrityError) FOREIGN KEY constraint failed
+[SQL: UPDATE records SET "values"=?, updated_by=?, updated_at=? WHERE records.id = ?]
+[parameters: ('{"da825040-df59-4527-a1f5-7fbd9de60ed5": "\\u65b0\\u72b6\\u6001", "6cc15612-abce-4712-bda7-2659b11436f4": ["daa93cea-addb-4fc8-8919-bf23667d3cd8", "cea6e90b-a0ca-4658-a4a2-550ea30cf70d"]}', '00000000-0000-0000-0000-000000000000', '2026-11-13 18:07:47.292092', '120f56b2-b999-4a97-977b-3fd954349f34')]
+(Background on this error at: https://sqlalche.me/e/20/gkpj)
+FAILED tests/test_workflow_execution.py::TestUpdateRecordRelatedUpdates::test_update_record_related_update_conditions_or_includes_when_any_matches - sqlalchemy.exc.IntegrityError: (sqlite3.IntegrityError) FOREIGN KEY constraint failed
+[SQL: UPDATE records SET "values"=?, updated_by=?, updated_at=? WHERE records.id = ?]
+[parameters: ('{"75373d22-4872-4c1c-87af-419247a7ef4b": "\\u65b0\\u72b6\\u6001", "c0c83bda-90b3-4677-ad64-9c200867e564": ["7751d7bc-9c8c-4532-8b69-9ba4085441db", "55194b6d-fd0f-454b-aa70-4f3b080146cb"]}', '00000000-0000-0000-0000-000000000000', '2026-11-13 18:07:48.454822', '55206c06-efb2-438e-8aba-d602e1fb4e63')]
+(Background on this error at: https://sqlalche.me/e/20/gkpj)
+FAILED tests/test_workflow_execution.py::TestUpdateRecordRelatedUpdates::test_update_record_related_update_conditions_and_includes_when_all_match - sqlalchemy.exc.IntegrityError: (sqlite3.IntegrityError) FOREIGN KEY constraint failed
+[SQL: UPDATE records SET "values"=?, updated_by=?, updated_at=? WHERE records.id = ?]
+[parameters: ('{"b4f86f37-a0f5-4c2e-a54c-919680a51a97": "\\u65b0\\u72b6\\u6001", "a1aec497-05a5-43c5-9fe2-36c9f7105379": ["ac088c2c-7597-4dd8-887a-ad3321175e38", "d403c340-3a93-4376-92bb-b0b46f05ba9b"]}', '00000000-0000-0000-0000-000000000000', '2026-11-13 18:07:49.817929', '86d89a71-805f-4c87-99d5-1dff97109c53')]
+(Background on this error at: https://sqlalche.me/e/20/gkpj)
+FAILED tests/test_workflow_execution.py::TestUpdateRecordRelatedUpdates::test_update_record_related_update_conditions_default_conjunction_is_and - sqlalchemy.exc.IntegrityError: (sqlite3.IntegrityError) FOREIGN KEY constraint failed
+[SQL: UPDATE records SET "values"=?, updated_by=?, updated_at=? WHERE records.id = ?]
+[parameters: ('{"5f0d5a42-5466-4904-b16e-26dc5540aa30": "\\u65b0\\u72b6\\u6001", "5cbe0a3f-cc2b-479b-96af-e0e86d6a3bf5": ["cd23e220-c240-4b8a-9757-086f0ada6fc8", "081893a3-1cd9-43aa-a1cb-ca99d700e116"]}', '00000000-0000-0000-0000-000000000000', '2026-11-13 18:07:51.845113', '2bc5f624-c656-4414-a20b-9eab64432896')]
+(Background on this error at: https://sqlalche.me/e/20/gkpj)
+FAILED tests/test_workflow_execution.py::TestUpdateRecordRelatedUpdates::test_update_record_related_update_trigger_or_and_conditions_and_combined - sqlalchemy.exc.IntegrityError: (sqlite3.IntegrityError) FOREIGN KEY constraint failed
+[SQL: UPDATE records SET "values"=?, updated_by=?, updated_at=? WHERE records.id = ?]
+[parameters: ('{"fb28d297-5c91-42d8-8fc9-6dcd8cc2fa3a": "\\u65b0\\u72b6\\u6001", "7e583fdf-25a5-45ec-beba-1765652f4eb3": ["337610f2-99ba-4676-8571-f7c49351e368", "ee9eaa2a-f939-443c-b35f-c9997187e776"]}', '00000000-0000-0000-0000-000000000000', '2026-11-13 18:07:53.501987', '96bf11e3-1ccc-46ed-9c72-119ee9f5e1c7')]
+(Background on this error at: https://sqlalche.me/e/20/gkpj)
+FAILED tests/test_workflow_execution.py::TestExecuteFindRecords::test_execute_find_records_missing_target_table_raises - AssertionError: Regex pattern did not match.
+ Regex: '缺少目标表格 ID'
+ Input: 'missing_target_table_id'
+FAILED tests/test_workflow_execution.py::TestExecuteCreateRecord::test_execute_create_record - sqlalchemy.exc.PendingRollbackError: This Session's transaction has been rolled back due to a previous exception during flush. To begin a new transaction with this Session, first issue Session.rollback(). Original exception was: (sqlite3.IntegrityError) FOREIGN KEY constraint failed
+[SQL: INSERT INTO records (id, table_id, "values", is_deleted, created_by, updated_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)]
+[parameters: ('4bb3c396-4b20-4e86-b335-1cfd8114e1b3', '4e0d8198-7fd7-45d5-ad84-4976c115fe10', '{"934fad4a-904e-4eec-8d56-b17dd0c1180c": "\\u65b0\\u8bb0\\u5f55\\u503c"}', 0, '00000000-0000-0000-0000-000000000000', '00000000-0000-0000-0000-000000000000', '2026-11-13 18:07:59.962147', '2026-11-13 18:07:59.962147')]
+(Background on this error at: https://sqlalche.me/e/20/gkpj) (Background on this error at: https://sqlalche.me/e/20/7s2a)
+FAILED tests/test_workflow_execution.py::TestExecuteCreateRecord::test_execute_create_record_with_template - sqlalchemy.exc.PendingRollbackError: This Session's transaction has been rolled back due to a previous exception during flush. To begin a new transaction with this Session, first issue Session.rollback(). Original exception was: (sqlite3.IntegrityError) FOREIGN KEY constraint failed
+[SQL: INSERT INTO records (id, table_id, "values", is_deleted, created_by, updated_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)]
+[parameters: ('26f7ca83-0339-42d4-a87a-bd58c58eadb4', '7dcab0e7-9a79-4217-a09d-8cea0ebef4bb', '{"6f5cb0c0-351f-469a-a471-0dc841d42a0e": "\\u6765\\u81ea\\u89e6\\u53d1\\u5668\\u7684\\u503c"}', 0, '00000000-0000-0000-0000-000000000000', '00000000-0000-0000-0000-000000000000', '2026-11-13 18:08:01.084206', '2026-11-13 18:08:01.084206')]
+(Background on this error at: https://sqlalche.me/e/20/gkpj) (Background on this error at: https://sqlalche.me/e/20/7s2a)
+FAILED tests/test_workflow_execution.py::TestExecuteCreateRecord::test_execute_create_record_missing_table_id - AssertionError: Regex pattern did not match.
+ Regex: '缺少目标表格 ID'
+ Input: 'missing_target_table_id'
+FAILED tests/test_workflow_execution.py::TestExecuteCreateRecord::test_execute_create_record_skips_empty_target_field - sqlalchemy.exc.PendingRollbackError: This Session's transaction has been rolled back due to a previous exception during flush. To begin a new transaction with this Session, first issue Session.rollback(). Original exception was: (sqlite3.IntegrityError) FOREIGN KEY constraint failed
+[SQL: INSERT INTO records (id, table_id, "values", is_deleted, created_by, updated_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)]
+[parameters: ('33ec85b2-bee2-4d15-8b2e-8f6e7cfd8068', '8a76aea8-c0e1-45c5-934b-d9cfff762855', '{"30577ac6-f175-402e-aeda-eadf095482aa": "\\u6709\\u6548\\u503c"}', 0, '00000000-0000-0000-0000-000000000000', '00000000-0000-0000-0000-000000000000', '2026-11-13 18:08:05.373180', '2026-11-13 18:08:05.373180')]
+(Background on this error at: https://sqlalche.me/e/20/gkpj) (Background on this error at: https://sqlalche.me/e/20/7s2a)
+FAILED tests/test_workflow_execution.py::TestExecuteWebhookNodeFieldNames::test_execute_webhook_node_inline_mode_creates_config - AttributeError: 'str' object has no attribute 'value'
+FAILED tests/test_workflow_loop.py::TestValidateLoopNode::test_nested_loop_exceeding_depth_3_raises - AssertionError: assert ('嵌套深度' in 'loop_nesting_depth_exceed_levels' or '3 层' in 'loop_nesting_depth_exceed_levels')
+ +  where 'loop_nesting_depth_exceed_levels' = str(ValueError('loop_nesting_depth_exceed_levels'))
+ +    where ValueError('loop_nesting_depth_exceed_levels') = <ExceptionInfo ValueError('loop_nesting_depth_exceed_levels') tblen=5>.value
+ +  and   'loop_nesting_depth_exceed_levels' = str(ValueError('loop_nesting_depth_exceed_levels'))
+ +    where ValueError('loop_nesting_depth_exceed_levels') = <ExceptionInfo ValueError('loop_nesting_depth_exceed_levels') tblen=5>.value
+FAILED tests/test_workflow_loop.py::TestCountLoopNodes::test_more_than_5_loops_in_create_workflow_raises - AssertionError: assert ('5 个' in 'single_workflow_most_loop_nodes' or '5个' in 'single_workflow_most_loop_nodes')
+ +  where 'single_workflow_most_loop_nodes' = str(ValueError('single_workflow_most_loop_nodes'))
+ +    where ValueError('single_workflow_most_loop_nodes') = <ExceptionInfo ValueError('single_workflow_most_loop_nodes') tblen=2>.value
+ +  and   'single_workflow_most_loop_nodes' = str(ValueError('single_workflow_most_loop_nodes'))
+ +    where ValueError('single_workflow_most_loop_nodes') = <ExceptionInfo ValueError('single_workflow_most_loop_nodes') tblen=2>.value
+FAILED tests/test_workflow_loop.py::TestExecuteLoopNode::test_loop_node_empty_result_error_raises - AssertionError: assert '空' in 'loop_data_source_empty'
+ +  where 'loop_data_source_empty' = str(ValueError('loop_data_source_empty'))
+ +    where ValueError('loop_data_source_empty') = <ExceptionInfo ValueError('loop_data_source_empty') tblen=2>.value
+FAILED tests/test_workflow_loop.py::TestLoopBodyNodeWrapper::test_wrapper_exposes_attributes - AssertionError: assert 'wrapper-1' is None
+ +  where 'wrapper-1' = <_LoopBodyNodeWrapper 更新记录 (update_record)>.id
+FAILED tests/test_workflow_loop.py::TestLoopBodyNodeWrapper::test_wrapper_handles_empty_dict - AssertionError: assert 'loop-body-2709574416720' is None
+ +  where 'loop-body-2709574416720' = <_LoopBodyNodeWrapper  (action)>.id
+FAILED tests/test_workflow_loop.py::TestLoopBodyNodeWrapper::test_wrapper_handles_none - AssertionError: assert 'loop-body-2709579178512' is None
+ +  where 'loop-body-2709579178512' = <_LoopBodyNodeWrapper  (action)>.id
+FAILED tests/test_workflow_loop_integration.py::TestLoopIntegrationFindRecordsCreateRecord::test_batch_archive_to_another_table - sqlalchemy.exc.PendingRollbackError: This Session's transaction has been rolled back due to a previous exception during flush. To begin a new transaction with this Session, first issue Session.rollback(). Original exception was: (sqlite3.IntegrityError) FOREIGN KEY constraint failed
+[SQL: INSERT INTO records (id, table_id, "values", is_deleted, created_by, updated_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)]
+[parameters: ('6a697dbc-4c4e-4616-9dba-01becf33fdff', 'a27bb83d-317a-46ac-adea-4105006b4265', '{"5300a463-83ed-46bb-b985-2c5f1bfe4664": "\\u9700\\u6c42A", "f10d7c2c-1d26-4b2f-9173-c0e39a4e32da": "\\u5f20\\u4e09", "89d88122-35df-4adc-a5be-ccd1cb3e62ec": "\\u9700\\u6c42\\u8fdb\\u5ea6\\u8868"}', 0, '00000000-0000-0000-0000-000000000000', '00000000-0000-0000-0000-000000000000', '2026-11-13 18:08:58.993121', '2026-11-13 18:08:58.993121')]
+(Background on this error at: https://sqlalche.me/e/20/gkpj) (Background on this error at: https://sqlalche.me/e/20/7s2a)
+FAILED tests/test_workflow_loop_integration.py::TestLoopIntegrationNested::test_nested_loop_creates_6_detail_records - sqlalchemy.exc.PendingRollbackError: This Session's transaction has been rolled back due to a previous exception during flush. To begin a new transaction with this Session, first issue Session.rollback(). Original exception was: (sqlite3.IntegrityError) FOREIGN KEY constraint failed
+[SQL: INSERT INTO records (id, table_id, "values", is_deleted, created_by, updated_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)]
+[parameters: ('8adc7e94-103e-41ee-b6c1-c90a11c12aea', '75326341-6cd8-484d-8c39-496b36da3bf1', '{"242b0d80-cc5c-4cb1-8731-b788916df85c": "\\u4efb\\u52a11", "70c3ea0e-32b8-4daf-b4a8-dae5b377bb51": ""}', 0, '00000000-0000-0000-0000-000000000000', '00000000-0000-0000-0000-000000000000', '2026-11-13 18:09:00.639251', '2026-11-13 18:09:00.639251')]
+(Background on this error at: https://sqlalche.me/e/20/gkpj) (Background on this error at: https://sqlalche.me/e/20/7s2a)
+FAILED tests/test_workflow_loop_integration.py::TestLoopValidationIntegration::test_create_workflow_rejects_six_loop_nodes - AssertionError: assert ('5' in 'single_workflow_most_loop_nodes')
+FAILED tests/test_workflow_loop_integration.py::TestLoopValidationIntegration::test_create_workflow_rejects_nested_depth_4 - AssertionError: assert ('嵌套深度' in 'loop_nesting_depth_exceed_levels' or '3 层' in 'loop_nesting_depth_exceed_levels')
+ +  where 'loop_nesting_depth_exceed_levels' = str(ValueError('loop_nesting_depth_exceed_levels'))
+ +    where ValueError('loop_nesting_depth_exceed_levels') = <ExceptionInfo ValueError('loop_nesting_depth_exceed_levels') tblen=6>.value
+ +  and   'loop_nesting_depth_exceed_levels' = str(ValueError('loop_nesting_depth_exceed_levels'))
+ +    where ValueError('loop_nesting_depth_exceed_levels') = <ExceptionInfo ValueError('loop_nesting_depth_exceed_levels') tblen=6>.value
+FAILED tests/test_workflow_loop_integration.py::TestLoopValidationIntegration::test_create_workflow_rejects_condition_in_loop_body - AssertionError: assert '条件' in 'conditional_branch_nodes_not_supported_loop_bodies'
+ +  where 'conditional_branch_nodes_not_supported_loop_bodies' = str(ValueError('conditional_branch_nodes_not_supported_loop_bodies'))
+ +    where ValueError('conditional_branch_nodes_not_supported_loop_bodies') = <ExceptionInfo ValueError('conditional_branch_nodes_not_supported_loop_bodies') tblen=3>.value
+FAILED tests/test_workflow_routes.py::TestWorkflowRoutes::test_get_workflow_instance_returns_node_name_in_logs - AssertionError: assert None == '通知用户'
+FAILED tests/test_workflow_send_email.py::TestExecuteSendEmailDisabled::test_raises_when_email_disabled - AssertionError: Regex pattern did not match.
+ Regex: '邮件服务未启用或配置不完整'
+ Input: '通知发送失败: None'
+FAILED tests/test_workflow_send_email.py::TestEmailTemplateListAPI::test_returns_200_with_templates - assert 403 == 200
+ +  where 403 = <WrapperTestResponse streamed [403 FORBIDDEN]>.status_code
+FAILED tests/test_workflow_send_email.py::TestEmailTemplateListAPI::test_regular_user_can_access - assert 403 == 200
+ +  where 403 = <WrapperTestResponse streamed [403 FORBIDDEN]>.status_code
+FAILED tests/test_workflow_service.py::TestSpecifiedTimeTrigger::test_validate_schedule_config_no_repeat_must_be_future - AssertionError: assert ('当前' in 'start_time_after_current_utc_time_no_repeat_mode' or '之后' in 'start_time_after_current_utc_time_no_repeat_mode' or '开始时间' in 'start_time_after_current_utc_time_no_repeat_mode')
+ +  where 'start_time_after_current_utc_time_no_repeat_mode' = str(ValueError('start_time_after_current_utc_time_no_repeat_mode'))
+ +    where ValueError('start_time_after_current_utc_time_no_repeat_mode') = <ExceptionInfo ValueError('start_time_after_current_utc_time_no_repeat_mode') tblen=2>.value
+ +  and   'start_time_after_current_utc_time_no_repeat_mode' = str(ValueError('start_time_after_current_utc_time_no_repeat_mode'))
+ +    where ValueError('start_time_after_current_utc_time_no_repeat_mode') = <ExceptionInfo ValueError('start_time_after_current_utc_time_no_repeat_mode') tblen=2>.value
+ +  and   'start_time_after_current_utc_time_no_repeat_mode' = str(ValueError('start_time_after_current_utc_time_no_repeat_mode'))
+ +    where ValueError('start_time_after_current_utc_time_no_repeat_mode') = <ExceptionInfo ValueError('start_time_after_current_utc_time_no_repeat_mode') tblen=2>.value
+FAILED tests/test_workflow_service.py::TestValidateRecordTimeConfig::test_missing_time_field_id - AssertionError: assert '时间字段' in 'select_time_field'
+ +  where 'select_time_field' = str(ValueError('select_time_field'))
+ +    where ValueError('select_time_field') = <ExceptionInfo ValueError('select_time_field') tblen=2>.value
+ERROR tests/test_member_sharing.py::test_get_members
+ERROR tests/test_member_sharing.py::test_add_member
+ERROR tests/test_member_sharing.py::test_update_member_role
+ERROR tests/test_member_sharing.py::test_create_share
+ERROR tests/test_member_sharing.py::test_get_shares
+ERROR tests/test_member_sharing.py::test_access_share
+ERROR tests/test_member_sharing.py::test_delete_share
+ERROR tests/test_member_sharing.py::test_remove_member
+164 failed, 1047 passed, 1 skipped, 2112 warnings, 8 errors in 818.16s (0:13:38)

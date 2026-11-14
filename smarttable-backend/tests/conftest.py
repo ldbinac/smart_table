@@ -4,13 +4,42 @@ Pytest 配置文件
 import pytest
 import os
 import sys
+import uuid
 from datetime import datetime
 
 # 添加项目根目录到路径
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
+# ========== SQLite 适配器：支持 UUID 和 Enum 类型 ==========
+# SQLite 不支持 Python uuid.UUID 对象和 Enum 直接绑定为参数。
+import sqlite3
+import uuid
+from enum import Enum
+
+sqlite3.register_adapter(uuid.UUID, lambda u: str(u))
+
+# 注册所有 Enum 类型的适配器：把 Enum 转为其 value
+_enum_adapter_registered = set()
+def _ensure_enum_adapters():
+    """延迟注册所有应用中使用的 Enum 类型适配器"""
+    try:
+        from app.models.workflow_instance import WorkflowTaskStatus, WorkflowInstanceStatus
+        from app.models.workflow import WorkflowStatus, WorkflowNodeType
+        from app.models.user import UserRole, UserStatus
+        
+        for enum_cls in [WorkflowTaskStatus, WorkflowInstanceStatus, WorkflowStatus, WorkflowNodeType, UserRole, UserStatus]:
+            if enum_cls not in _enum_adapter_registered:
+                sqlite3.register_adapter(enum_cls, lambda e: e.value)
+                _enum_adapter_registered.add(enum_cls)
+    except ImportError:
+        pass
+
+_ensure_enum_adapters()
+
 from app import create_app
 from app.extensions import db
+# 导入所有模型，确保 db.create_all() 能创建所有表
+import app.models  # noqa: F401  -- side-effect import to register all models
 from app.models import User, Base, Table, Field, Record, View
 
 
@@ -22,6 +51,7 @@ def app():
     app.config['JWT_SECRET_KEY'] = 'test-jwt-secret'
     app.config['SECRET_KEY'] = 'test-secret-key'
     app.config['WTF_CSRF_ENABLED'] = False
+    app.config['DEV_SKIP_CAPTCHA'] = True
 
     with app.app_context():
         db.create_all()

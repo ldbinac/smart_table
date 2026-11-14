@@ -256,6 +256,7 @@ describe("Filter Types", () => {
   });
 
   it("should get condition description", () => {
+    setI18nLanguage("zh-CN");
     const condition: FilterCondition = {
       fieldId: "name",
       operator: FilterOperator.CONTAINS,
@@ -387,6 +388,7 @@ describe("Sort Types", () => {
   });
 
   it("should get sort description", () => {
+    setI18nLanguage("zh-CN");
     const sort: SortConfig = {
       fieldId: "name",
       direction: SortDirection.ASC,

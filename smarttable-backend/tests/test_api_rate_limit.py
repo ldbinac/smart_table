@@ -30,9 +30,30 @@ class _FakeCache:
         self._store.pop(key, None)
 
 
+_ORIGINAL_MODULES = {}
+
+
+def _save_original_modules():
+    """在注入 fake 模块之前保存原始模块引用。"""
+    for key in ("flask", "flask_jwt_extended", "app.extensions", "app.utils.response"):
+        _ORIGINAL_MODULES.setdefault(key, sys.modules.get(key))
+
+
+def _restore_original_modules():
+    """测试结束后恢复原始模块，避免污染后续测试。"""
+    for key, value in _ORIGINAL_MODULES.items():
+        if value is None:
+            sys.modules.pop(key, None)
+        else:
+            sys.modules[key] = value
+    _ORIGINAL_MODULES.clear()
+
+
 def _make_module(fake_cache):
     """动态构造 decorators 模块，注入 fake cache 与最小依赖。"""
     import importlib.util
+
+    _save_original_modules()
 
     spec = importlib.util.spec_from_file_location(
         "test_decorators_mod",
@@ -78,6 +99,13 @@ def _make_module(fake_cache):
 
     spec.loader.exec_module(mod)
     return mod
+
+
+@pytest.fixture(autouse=True)
+def _restore_sys_modules_after_test():
+    """每个测试结束后恢复被 mock 的 sys.modules，避免污染后续测试。"""
+    yield
+    _restore_original_modules()
 
 
 def _call_limited(fn, times, fake_cache):

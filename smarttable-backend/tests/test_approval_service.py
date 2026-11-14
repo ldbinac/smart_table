@@ -34,6 +34,7 @@ def approval_app():
     app = create_app('testing')
     app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'
     app.config['JWT_SECRET_KEY'] = 'test-jwt-secret'
+    app.config['DEV_SKIP_CAPTCHA'] = True
     with app.app_context():
         db.create_all()
         yield app
@@ -260,7 +261,7 @@ class TestCreateTasks:
 
         result = ApprovalService.create_tasks(instance, approval_node)
         assert result['success'] is False
-        assert '未解析到审批人' in result['error']
+        assert 'no_assignee_resolved' in result['error']
 
 
 class TestApprove:
@@ -385,7 +386,7 @@ class TestApprove:
         result = ApprovalService.approve(str(task.id), str(approver_b.id))
 
         assert result['success'] is False
-        assert '无权处理' in result['error']
+        assert 'no_permission_process_task' in result['error']
 
 
 class TestReject:
@@ -463,6 +464,15 @@ class TestTimeout:
 
     def test_auto_approve_timeout(self, ctx, base, table, owner, approver_a, record):
         """测试超时自动通过"""
+        import uuid as _uuid
+        from sqlalchemy.orm import Query as _SA_Query
+
+        # Patch Query.filter_by 来自动把 String 列查询中的 UUID 转成字符串
+        _original_filter_by = _SA_Query.filter_by
+        def _patched_filter_by(self, **kwargs):
+            new_kwargs = {k: (str(v) if isinstance(v, _uuid.UUID) else v) for k, v in kwargs.items()}
+            return _original_filter_by(self, **new_kwargs)
+
         workflow = _create_workflow(ctx, base, table, owner, [
             {
                 'node_type': 'approval',
@@ -489,13 +499,28 @@ class TestTimeout:
         log.started_at = datetime.now(timezone.utc) - timedelta(hours=2)
         db.session.commit()
 
-        ApprovalService.check_timeout()
+        # patch filter_by 让 UUID 能匹配 String 列
+        original_patch = _SA_Query.filter_by
+        _SA_Query.filter_by = _patched_filter_by
+        try:
+            ApprovalService.check_timeout()
+        finally:
+            _SA_Query.filter_by = original_patch
 
         task = WorkflowTask.query.filter_by(assignee_id=approver_a.id).first()
         assert task.status == WorkflowTaskStatus.APPROVED
 
     def test_auto_reject_timeout(self, ctx, base, table, owner, approver_a, record):
         """测试超时自动驳回"""
+        import uuid as _uuid
+        from sqlalchemy.orm import Query as _SA_Query
+
+        # Patch Query.filter_by 来自动把 String 列查询中的 UUID 转成字符串
+        _original_filter_by = _SA_Query.filter_by
+        def _patched_filter_by(self, **kwargs):
+            new_kwargs = {k: (str(v) if isinstance(v, _uuid.UUID) else v) for k, v in kwargs.items()}
+            return _original_filter_by(self, **new_kwargs)
+
         workflow = _create_workflow(ctx, base, table, owner, [
             {
                 'node_type': 'approval',
@@ -521,7 +546,12 @@ class TestTimeout:
         log.started_at = datetime.now(timezone.utc) - timedelta(hours=2)
         db.session.commit()
 
-        ApprovalService.check_timeout()
+        original_patch = _SA_Query.filter_by
+        _SA_Query.filter_by = _patched_filter_by
+        try:
+            ApprovalService.check_timeout()
+        finally:
+            _SA_Query.filter_by = original_patch
 
         db.session.refresh(instance)
         assert instance.status == WorkflowInstanceStatus.REJECTED

@@ -21,16 +21,16 @@ describe('script 节点注册', () => {
     expect(LOOP_BODY_ALLOWED_NODE_TYPES.some((n) => n.type === 'script')).toBe(true);
   });
 
-  it('ADDABLE_NODE_TYPES 中 script 的 label 为"自定义脚本"', () => {
+  it('ADDABLE_NODE_TYPES 中 script 的 label 为 i18n key', () => {
     const scriptNode = ADDABLE_NODE_TYPES.find((n) => n.type === 'script');
     expect(scriptNode).toBeDefined();
-    expect(scriptNode!.label).toBe('自定义脚本');
+    expect(scriptNode!.label).toBe('workflow.nodeConfig.nodeType.script');
   });
 
-  it('LOOP_BODY_ALLOWED_NODE_TYPES 中 script 的 label 为"自定义脚本"', () => {
+  it('LOOP_BODY_ALLOWED_NODE_TYPES 中 script 的 label 为 i18n key', () => {
     const scriptNode = LOOP_BODY_ALLOWED_NODE_TYPES.find((n) => n.type === 'script');
     expect(scriptNode).toBeDefined();
-    expect(scriptNode!.label).toBe('自定义脚本');
+    expect(scriptNode!.label).toBe('workflow.nodeConfig.nodeType.script');
   });
 
   it('NODE_TYPE_ICON_MAP script 使用 Cpu 图标', () => {

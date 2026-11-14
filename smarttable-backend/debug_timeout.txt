@@ -1,0 +1,40 @@
+﻿python : [2026-11-14 01:43:32,265] INFO in extensions: [Extensions] SQLite journal_mode=WAL (docker=False)
+所在位置 行:15 字符: 4337
++ ... '; cd d:\_dev\_src\github\smart_table\smarttable-backend; python -c "
++                                                               ~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ([2026-11-14 01:... (docker=False):String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+[2026-11-14 01:43:32,268] INFO in extensions: [Extensions] ✓ SQLite WAL journal + busy_timeout=5000 configured
+[2026-11-14 01:43:32,283] INFO in extensions: [Extensions] Redis client initialized successfully
+[2026-11-14 01:43:32,289] DEBUG in workflow_event_bus: [WorkflowEventBus] Handler unsubscribed: <bound method WorkflowE
+xecutionEngine._on_workflow_event of <app.services.workflow_execution_engine.WorkflowExecutionEngine object at 0x000001
+ED9FE54E30>>
+[2026-11-14 01:43:32,289] DEBUG in workflow_event_bus: [WorkflowEventBus] Handler subscribed: <bound method WorkflowExe
+cutionEngine._on_workflow_event of <app.services.workflow_execution_engine.WorkflowExecutionEngine object at 0x000001ED
+AFF61100>>
+[2026-11-14 01:43:32,289] INFO in workflow_execution_engine: [WorkflowExecutionEngine] 已订阅 workflow_event_bus
+[2026-11-14 01:43:32,527] INFO in __init__: [E10] SSO 集成未启用（设置 E10_SSO_ENABLED=true 开启）
+Traceback (most recent call last):
+  File "<string>", line 32, in <module>
+NameError: name 'Field' is not defined
+[Config] ✓ 数据库路径 (自动): D:\_dev\_src\github\smart_table\smarttable-backend\data\smarttable.db
+[InitEmailTemplates] 开始初始化默认邮件模板...
+[InitEmailTemplates] 初始化失败：(sqlite3.OperationalError) no such table: email_templates
+[SQL: SELECT email_templates.id AS email_templates_id, email_templates.template_key AS email_templates_template_key, email_templates.name AS email_templates_name, email_templates.subject AS email_templates_subject, email_templates.content_html AS email_templates_content_html, email_templates.content_text AS email_templates_content_text, email_templates.description AS email_templates_description, email_templates.is_default AS email_templates_is_default, email_templates.created_at AS email_templates_created_at, email_templates.updated_at AS email_templates_updated_at 
+FROM email_templates 
+WHERE email_templates.template_key = ?
+ LIMIT ? OFFSET ?]
+[parameters: ('user_registration', 1, 0)]
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[WorkflowTemplateService] 开始初始化系统工作流模板...
+[WorkflowTemplateService] 初始化系统模板失败：(sqlite3.OperationalError) no such table: workflow_templates
+[SQL: SELECT workflow_templates.id AS workflow_templates_id, workflow_templates.name AS workflow_templates_name, workflow_templates.description AS workflow_templates_description, workflow_templates.category AS workflow_templates_category, workflow_templates.config_snapshot AS workflow_templates_config_snapshot, workflow_templates.is_system AS workflow_templates_is_system, workflow_templates.created_by AS workflow_templates_created_by, workflow_templates.created_at AS workflow_templates_created_at, workflow_templates.updated_at AS workflow_templates_updated_at, users_1.id AS users_1_id, users_1.email AS users_1_email, users_1.username AS users_1_username, users_1.password_hash AS users_1_password_hash, users_1.name AS users_1_name, users_1.avatar AS users_1_avatar, users_1.role AS users_1_role, users_1.status AS users_1_status, users_1.email_verified AS users_1_email_verified, users_1.verification_token AS users_1_verification_token, users_1.verification_token_expires AS users_1_verification_token_expires, users_1.reset_token AS users_1_reset_token, users_1.reset_token_expires AS users_1_reset_token_expires, users_1.must_change_password AS users_1_must_change_password, users_1.password_changed_at AS users_1_password_changed_at, users_1.last_login_at AS users_1_last_login_at, users_1.created_at AS users_1_created_at, users_1.updated_at AS users_1_updated_at, users_1.notification_prefs AS users_1_notification_prefs 
+FROM workflow_templates LEFT OUTER JOIN users AS users_1 ON users_1.id = workflow_templates.created_by 
+WHERE workflow_templates.name = ? AND workflow_templates.is_system = 1
+ LIMIT ? OFFSET ?]
+[parameters: ('请假审批', 1, 0)]
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+[Static Serving] ✓ Frontend dist path: D:\_dev\_src\github\smart_table\smart-table\dist
+[Static Serving] ✓ Frontend dist path: D:\_dev\_src\github\smart_table\smart-table\dist
+[Static Serving] ✓ Static file serving configured

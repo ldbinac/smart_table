@@ -38,6 +38,9 @@ vi.mock('@element-plus/icons-vue', () => ({
   Share: { name: 'Share', template: '<span class="icon-share" />' },
   CircleCheck: { name: 'CircleCheck', template: '<span class="icon-circle-check" />' },
   Refresh: { name: 'Refresh', template: '<span class="icon-refresh" />' },
+  Bell: { name: 'Bell', template: '<span class="icon-bell" />' },
+  Cpu: { name: 'Cpu', template: '<span class="icon-cpu" />' },
+  LocationInformation: { name: 'LocationInformation', template: '<span class="icon-location-information" />' },
 }))
 
 const defaultProps: Record<string, any> = {

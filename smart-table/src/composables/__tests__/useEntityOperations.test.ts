@@ -115,7 +115,7 @@ describe("useEntityOperations", () => {
       expect(mockTableService.updateTable).toHaveBeenCalledWith("table-1", {
         isStarred: true,
       });
-      expect(mockElMessage.success).toHaveBeenCalledWith("收藏成功");
+      expect(mockElMessage.success).toHaveBeenCalledWith("已收藏");
     });
   });
 
@@ -193,7 +193,7 @@ describe("useEntityOperations", () => {
       expect(mockDashboardService.updateDashboard).toHaveBeenCalledWith("dashboard-1", {
         isStarred: true,
       });
-      expect(mockElMessage.success).toHaveBeenCalledWith("收藏成功");
+      expect(mockElMessage.success).toHaveBeenCalledWith("已收藏");
     });
   });
 });

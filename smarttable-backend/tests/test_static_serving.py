@@ -47,21 +47,27 @@ class TestConfigureStaticServing:
     """configure_static_serving() 函数测试"""
 
     def test_registers_catch_all_route(self):
-        """测试注册了 catch-all 路由"""
+        """测试无 dist 时不注册 catch-all 路由"""
         from flask import Flask
         app = Flask(__name__)
         
         module = __import__('app.static_serving', fromlist=['configure_static_serving'])
         
-        with patch.object(module, 'get_dist_path', return_value=None):
-            success = module.configure_static_serving(app)
-            
-            # 即使没有 dist，也应该注册路由（显示友好错误页面）
-            assert success is False
-            
-            # 验证路由已注册
-            rules = [rule.rule for rule in app.url_map.iter_rules()]
-            assert '/' in rules
+        # 重置全局标志（测试间状态隔离）
+        orig_flag = module._static_serving_initialized
+        module._static_serving_initialized = False
+        try:
+            with patch.object(module, 'get_dist_path', return_value=None):
+                success = module.configure_static_serving(app)
+                
+                # 没有 dist 时不注册路由（避免捕获 /api/* 请求）
+                assert success is False
+                
+                # 验证路由未注册
+                rules = [rule.rule for rule in app.url_map.iter_rules()]
+                assert '/' not in rules
+        finally:
+            module._static_serving_initialized = orig_flag
 
     def test_configures_with_valid_dist(self, tmp_path):
         """使用有效的 dist 路径配置成功"""
@@ -75,10 +81,16 @@ class TestConfigureStaticServing:
         
         module = __import__('app.static_serving', fromlist=['configure_static_serving'])
         
-        with patch.object(module, 'get_dist_path', return_value=str(dist_dir)):
-            success = module.configure_static_serving(app)
-            
-            assert success is True
+        # 重置全局标志
+        orig_flag = module._static_serving_initialized
+        module._static_serving_initialized = False
+        try:
+            with patch.object(module, 'get_dist_path', return_value=str(dist_dir)):
+                success = module.configure_static_serving(app)
+                
+                assert success is True
+        finally:
+            module._static_serving_initialized = orig_flag
 
 
 class TestServeFrontend:

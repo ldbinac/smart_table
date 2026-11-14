@@ -67,17 +67,17 @@ class TestValidatePassword:
     def test_missing_uppercase(self):
         ok, err = validate_password('test1234!')
         assert ok is False
-        assert '大写字母' in err
+        assert 'uppercase_letter' in err
     
     def test_missing_lowercase(self):
         ok, err = validate_password('TEST1234!')
         assert ok is False
-        assert '小写字母' in err
+        assert 'lowercase_letter' in err
     
     def test_missing_digit(self):
         ok, err = validate_password('TestTest!')
         assert ok is False
-        assert '数字' in err
+        assert 'number' in err
     
     def test_none_password(self):
         ok, err = validate_password(None)

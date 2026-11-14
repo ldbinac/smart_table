@@ -131,10 +131,12 @@ describe('DocumentEditor', () => {
     await flushPromises();
 
     expect(updateMock).toHaveBeenCalledTimes(1);
-    expect(updateMock).toHaveBeenCalledWith('doc-1', {
-      content: '{"ops":[{"insert":"test content\\n"}]}',
-      contentFormat: 'delta'
-    });
+    const [docId, payload] = updateMock.mock.calls[0];
+    expect(docId).toBe('doc-1');
+    expect(payload.content).toBe('{"ops":[{"insert":"test content\\n"}]}');
+    expect(payload.contentFormat).toBe('delta');
+    // 乐观锁字段 expected_updated_at 应存在
+    expect(payload.expected_updated_at).toBeDefined();
   });
 
   it('shows save status indicator', async () => {
