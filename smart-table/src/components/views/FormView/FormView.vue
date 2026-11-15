@@ -904,7 +904,7 @@ defineExpose({
             <!-- 签字字段类型 -->
             <template v-else-if="getFieldComponentType(field) === 'signature'">
               <SignatureField
-                :model-value="formValues[field.id]"
+                :model-value="(formValues[field.id] as string | null)"
                 :field="field"
                 :record-id="props.record?.id || newRecordId"
                 :readonly="readonly"

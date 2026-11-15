@@ -1162,7 +1162,7 @@ function calculateFormulaValue(field: FormFieldSchema): string {
             <!-- 签字字段类型 -->
             <template v-else-if="getFieldComponentType(field) === 'signature'">
               <SignatureField
-                :model-value="formValues[field.id]"
+                :model-value="(formValues[field.id] as string | null)"
                 :field="field as unknown as FieldEntity"
                 :record-id="newRecordId"
                 :form-share-token="shareToken"

@@ -4,6 +4,100 @@
 
 ***
 
+# SmartTable v1.6.11 Release Notes
+
+**发布日期 / Release Date**: 2026-11-15
+
+**版本号 / Version**: v1.6.11
+
+**标签 / Tags**: `release`, `v1.6.11`, `latest`, `stable`, `signature`, `selection-stats`, `import`, `i18n`, `relation`, `timezone`, `migration`, `bugfix`
+
+***
+
+## 中文版本 / Chinese Version
+
+### 🎉 SmartTable v1.6.11 更新说明
+
+本次更新聚焦 **签字字段**、**拖拽框选实时统计**、**顺序导入与多语言**，并包含一批**导入体验改进**与**关联字段、时区、迁移**相关的稳定性修复。新增支持手写与输入的签字字段，表格视图可拖拽框选单元格实时统计数值列合计与均值，导入新增顺序模式；Excel 导入建表时能按列数据自动推断数字、货币、百分比字段的精度；同时修复了关联字段显示、双向关联导出重导入、编辑保存失败回滚、时区偏差以及 Alembic 多版本/多 head 迁移检测等问题。
+
+### ✨ 新增及功能优化
+
+#### ✍️ 签名字段 ⭐
+
+- ⭐ **签名字段**：新增签字字段，支持手写签字与输入签字，可用于表格、表单、记录详情/新增抽屉及表单分享页
+- **签名字段图标**：图标更新为指针样式，避免与编辑图标混淆
+
+#### 📊 拖拽框选实时统计 ⭐
+
+- **数值列实时统计**：表格视图支持拖拽框选单元格，实时统计所选数值列的合计与均值
+
+#### 📥 导入体验增强
+
+- **顺序导入模式**：新增顺序导入模式，可以限定导入的数据严格按照excel里数据的顺序导入
+- **Excel 字段精度自动推断**：Excel 导入建表时，根据列数据自动推断数字、货币、百分比字段的精度
+
+#### 🌐 国际化
+
+- **文案与提示路径更新**：更新国际化文案及工作流节点验证提示路径
+
+### 🐳 部署与迁移优化
+
+- **多版本 Alembic 升级判定修复**：修复多版本 Alembic 升级判定永远为 True 的问题
+- **Alembic 多 head 迁移检测修复**：修复多 head 场景下迁移检测逻辑错误
+
+### 🐛 Bug 修复 (Bug Fixes)
+
+- 修复编辑保存失败时未展示接口原因、表格视图单元格值未回滚的问题，现在会展示原因并回滚
+- 统一时区处理，解决时间序列化和解析的时区偏差问题
+- 修复双向关联导出时显示名重复导致无法重新导入的问题
+- 修复关联字段显示裸记录 ID 及反向关联显示名缺失的问题
+- 修复复制记录及批量创建时关联字段未同步导致显示「关联 N 条」的问题
+- 修复导入模板遗漏主字段及日期时间字段示例格式错误的问题
+
+---
+
+## English Version
+
+### 🎉 SmartTable v1.6.11 Release Notes
+
+This release focuses on **signature fields**, **drag-to-select real-time statistics**, and **sequential import & multilingual support**, along with a batch of **import improvements** and **stability fixes** around relation fields, timezone handling, and migrations. It adds signature fields supporting handwritten and typed signatures, live sum/average statistics when drag-selecting cells in the table view, and a sequential import mode; Excel-based table creation now infers precision for number, currency, and percentage fields from column data; and it fixes issues around relation-field display, re-importing bidirectional relation exports, rollback on failed edits, timezone offsets, and Alembic multi-version / multi-head migration detection.
+
+### ✨ New Features & Improvements
+
+#### ✍️ Signature Field ⭐
+
+- ⭐ **Signature Field**: Added a signature field supporting handwritten and typed signatures, available in tables, forms, record detail/create drawers, and the public form view
+- **Signature Icon**: Updated the signature-field icon to a pointer style to avoid confusion with the edit icon
+
+#### 📊 Drag-to-Select Statistics ⭐
+
+- **Live Numeric Statistics**: Drag to select cells in the table view to see real-time sum and average statistics for the selected numeric columns
+
+#### 📥 Import Experience Enhancements
+
+- **Sequential Import Mode**: Added a sequential import mode that can restrict imported data to strictly follow the order of rows in the Excel file
+- **Excel Precision Inference**: When creating a table from an Excel import, precision for number, currency, and percentage fields is inferred automatically from column data
+
+#### 🌐 Internationalization
+
+- **Copy & Prompt Path Updates**: Updated i18n copy and the workflow-node validation prompt path
+
+### 🐛 Bug Fixes
+
+- Show the API error reason and roll back the edited cell value in the table view when saving fails
+- Unified timezone handling to resolve offset issues in datetime serialization and parsing
+- Fixed duplicate display names in bidirectional relation exports that prevented re-importing
+- Fixed relation fields showing raw record IDs and missing display names for reverse relations
+- Fixed relation fields not syncing when copying records or bulk-creating, which showed an incorrect "N linked records" count
+- Fixed import templates missing the primary field and incorrect datetime example formatting
+
+### 🐳 Deployment & Migration Optimization
+
+- **Multi-Version Alembic Detection Fix**: Fixed the bug where multi-version Alembic upgrade detection was always `True`
+- **Alembic Multi-Head Fix**: Fixed incorrect migration detection logic in multi-head scenarios
+
+***
+
 # SmartTable v1.6.10 Release Notes
 
 **发布日期 / Release Date**: 2026-11-04

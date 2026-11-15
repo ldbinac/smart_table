@@ -4806,9 +4806,10 @@ const enhanceSubTableColumns = (columns: any[], targetFields: any[]): any[] => {
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              gap: 4,
-              pickable: true,
-            });
+              // gap 是 vrender flex 运行时支持的属性，类型定义 IGroupGraphicAttribute 暂未包含
+            } as any);
+            (sigContainer as any).gap = 4;
+            (sigContainer as any).pickable = true;
 
             const cachedUrl = signatureUrlCache.get(sigId);
             const isLoading = signatureLoadingIds.has(sigId);
@@ -5710,9 +5711,10 @@ const buildTableConfig = (): any => {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            gap: 4,
-            pickable: true,
-          });
+            // gap 是 vrender flex 运行时支持的属性，类型定义 IGroupGraphicAttribute 暂未包含
+          } as any);
+          (sigContainer as any).gap = 4;
+          (sigContainer as any).pickable = true;
 
           const cachedUrl = signatureUrlCache.get(sigId);
           const isLoading = signatureLoadingIds.has(sigId);
