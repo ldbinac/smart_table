@@ -73,6 +73,8 @@ const importResult = ref<BatchResult | null>(null);
 const isPaused = ref(false);
 const batchConfig = ref<BatchConfig>({ ...DEFAULT_BATCH_CONFIG });
 const showErrorDetails = ref(false);
+/** 顺序导入开关：开启后逐条创建，保证自动编号严格递增 */
+const sequentialMode = ref(false);
 const failedBatchInputs = ref<Record<number, Record<string, unknown>[]>>({});
 
 // ==================== 关联字段自动匹配 ====================
@@ -599,7 +601,10 @@ async function handleImport() {
     ElMessage.warning(t('import.skippedRows', { count: invalidRows.length }));
   }
 
-  const controller = new BatchImportController(batchConfig.value);
+  const controller = new BatchImportController({
+    ...batchConfig.value,
+    sequentialMode: sequentialMode.value,
+  });
   importController.value = controller;
 
   controller.onProgress((progress: BatchProgress) => {
@@ -703,7 +708,10 @@ function handleRetryFailed() {
   linkMatchPhase.value = false;
   linkMatchSummaries.value = [];
 
-  const controller = new BatchImportController(batchConfig.value);
+  const controller = new BatchImportController({
+    ...batchConfig.value,
+    sequentialMode: sequentialMode.value,
+  });
   importController.value = controller;
 
   controller.onProgress((progress: BatchProgress) => {
@@ -789,6 +797,7 @@ function resetState() {
   importResult.value = null;
   isPaused.value = false;
   showErrorDetails.value = false;
+  sequentialMode.value = false;
   failedBatchInputs.value = {};
   matchFieldIds.value = {};
   targetFieldsCache.value = {};
@@ -1028,8 +1037,22 @@ function downloadTemplate(format: "excel" | "csv" | "json") {
           </el-table>
         </div>
         <p v-if="parsedData" class="total-records-hint">
-          {{ t('import.totalRecordsHint', { count: parsedData.data.length, batch: batchConfig.batchSize }) }}
+          <template v-if="sequentialMode">
+            {{ t('import.sequentialModeTotalHint', { count: parsedData.data.length }) }}
+          </template>
+          <template v-else>
+            {{ t('import.batchModeTotalHint', { count: parsedData.data.length, batch: batchConfig.batchSize }) }}
+          </template>
         </p>
+        <div v-if="parsedData && parsedData.data.length > 0" class="sequential-mode-wrapper">
+          <el-checkbox
+            v-model="sequentialMode"
+            :disabled="isImporting"
+            class="sequential-mode-switch">
+            {{ t('import.sequentialMode') }}
+          </el-checkbox>
+          <span class="sequential-mode-hint">{{ t('import.sequentialModeHint') }}</span>
+        </div>
       </div>
 
       <!-- 导入进度展示 -->
@@ -1060,7 +1083,7 @@ function downloadTemplate(format: "excel" | "csv" | "json") {
         <!-- 统计信息 -->
         <div class="progress-stats">
           <div class="stat-item">
-            <span class="stat-label">{{ t('import.statBatchProgress') }}</span>
+            <span class="stat-label">{{ sequentialMode ? t('import.statRowProgress') : t('import.statBatchProgress') }}</span>
             <span class="stat-value">{{ importProgress?.completedBatches || 0 }} / {{ importProgress?.totalBatches || 0 }}</span>
           </div>
           <div class="stat-item">
@@ -1428,6 +1451,19 @@ function downloadTemplate(format: "excel" | "csv" | "json") {
   text-align: center;
   color: $text-secondary;
   font-size: $font-size-sm;
+}
+
+.sequential-mode-wrapper {
+  margin-top: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+
+  .sequential-mode-hint {
+    color: $text-secondary;
+    font-size: $font-size-xs;
+  }
 }
 
 .importing-section {

@@ -114,5 +114,10 @@
   "memberMatchResultTitle": "成员匹配结果",
   "memberMatched": "已匹配 {count}",
   "memberUnmatched": "未匹配 {count}",
-  "memberUnmatchedNames": "未匹配的用户："
+  "memberUnmatchedNames": "未匹配的用户：",
+  "sequentialMode": "顺序导入（保证自动编号严格递增）",
+  "sequentialModeHint": "速度较慢，适合数据量较小且需要自动编号按行序排列的场景",
+  "sequentialModeTotalHint": "共 {count} 行数据，将逐条按 Excel 顺序导入（自动编号严格递增）",
+  "batchModeTotalHint": "共 {count} 行数据，将以每批次 {batch} 条进行批量导入（速度快）",
+  "statRowProgress": "行进度"
 }

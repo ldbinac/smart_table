@@ -114,5 +114,10 @@
   "memberMatchResultTitle": "Member Matching Results",
   "memberMatched": "Matched {count}",
   "memberUnmatched": "Unmatched {count}",
-  "memberUnmatchedNames": "Unmatched users: "
+  "memberUnmatchedNames": "Unmatched users: ",
+  "sequentialMode": "Sequential import (guarantees auto-number strict ordering)",
+  "sequentialModeHint": "Slower. Recommended for small datasets where auto-numbers must follow the Excel row order.",
+  "sequentialModeTotalHint": "{count} rows in total, importing one by one in Excel row order (auto-numbers strictly increasing)",
+  "batchModeTotalHint": "{count} rows in total, imported in batches of {batch} (faster)",
+  "statRowProgress": "Row progress"
 }
