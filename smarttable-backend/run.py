@@ -284,13 +284,31 @@ def _needs_upgrade(migrations_dir, db_engine) -> bool:
             inspector = db_engine.dialect.has_table(conn, 'alembic_version')
             if not inspector:
                 return True
+
             context = _MigrationContext.configure(conn)
-            # 必须用 get_current_heads()——单 head 返回 (rev,)，多 head 返回 (rev1, rev2, ...)
-            # get_current_revision() 在多 head 时直接抛 CommandError！
-            current_heads = context.get_current_heads()
-            if not current_heads:
+            # ⚠️ Alembic 的 MigrationContext.configure(conn) 不接受 script 参数，
+            # 所以 get_current_heads() 会返回 alembic_version 表里的所有版本号，
+            # 而不是真正的 heads（没有被其他 revision 指向的版本）。
+            #
+            # 必须用 script_directory 的 revision map 来过滤出真正的 heads：
+            #   数据库真正 heads = 数据库版本 - 被其他 revision 指为 down_revision 的版本
+            db_all_versions = set(context.get_current_heads())
+            if not db_all_versions:
                 return True
-            current_set = set(current_heads)
+
+            # 从 script.revision_map 找出所有"被指向的 down_revision"（即中间节点）
+            pointed_down = set()
+            for rev in script.revision_map._revision_map.values():
+                if rev is None:
+                    continue
+                dr = rev.down_revision
+                if isinstance(dr, str):
+                    pointed_down.add(dr)
+                elif isinstance(dr, (list, tuple)):
+                    pointed_down.update(dr)
+
+            # 数据库真正的 heads = 数据库版本中，没被其他 revision 指向的那些
+            current_set = db_all_versions - pointed_down
 
         return current_set != heads
 
