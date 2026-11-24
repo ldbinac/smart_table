@@ -4645,19 +4645,24 @@ const enhanceSubTableColumns = (columns: any[], targetFields: any[]): any[] => {
 
             displayFiles.forEach((file: any) => {
               const fileName = file.name || '';
-              const fileUrl = file.url || file.thumbnail || file.preview || '';
+              // 单元格内优先使用缩略图，避免直接加载原图占用带宽与内存；无缩略图时回退原图
+              const thumbCandidate = file.thumbnail || file.thumbnail_url || file.preview || '';
+              const thumbUrl = (typeof thumbCandidate === 'string' && thumbCandidate) ? thumbCandidate : (file.url || '');
               const isImage = isImageFile(fileName);
 
-              if (isImage && fileUrl) {
-                const img = createImage({ width: itemSize, height: itemSize, image: fileUrl, cornerRadius: 4, cursor: 'pointer' });
+              if (isImage && thumbUrl) {
+                const img = createImage({ width: itemSize, height: itemSize, image: thumbUrl, cornerRadius: 4, cursor: 'pointer' });
                 img.addEventListener('pointerdown', (e: any) => { e.stopPropagation?.(); });
                 img.addEventListener('pointertap', (e: any) => {
                   e.stopPropagation?.();
-                  // 收集当前单元格内全部图片（按附件顺序），从被点击图片开始预览
-                  const imageFiles = files
-                    .filter((f: any) => isImageFile(f.name || '') && (f.url || f.thumbnail || f.preview))
-                    .map((f: any) => ({ url: f.url || f.thumbnail || f.preview, name: f.name || '' }));
-                  const idx = imageFiles.findIndex(im => im.url === fileUrl && im.name === fileName);
+                  // 收集当前单元格内全部图片（按附件顺序），从被点击图片开始预览；预览使用原图保证清晰度
+                  const imageFileObjects = files
+                    .filter((f: any) => isImageFile(f.name || '') && (f.thumbnail || f.thumbnail_url || f.url || f.preview));
+                  const imageFiles = imageFileObjects.map((f: any) => ({
+                    url: f.url || f.preview || f.thumbnail || f.thumbnail_url || '',
+                    name: f.name || ''
+                  }));
+                  const idx = imageFileObjects.indexOf(file);
                   attachmentImagePreviewFiles.value = imageFiles;
                   attachmentImagePreviewIndex.value = idx >= 0 ? idx : 0;
                   attachmentImagePreviewVisible.value = true;
@@ -5599,15 +5604,17 @@ const buildTableConfig = (): any => {
 
           displayFiles.forEach((file: any) => {
             const fileName = file.name || '';
-            const fileUrl = file.url || file.thumbnail || file.preview || '';
+            // 单元格内优先使用缩略图，避免直接加载原图占用带宽与内存；无缩略图时回退原图
+            const thumbCandidate = file.thumbnail || file.thumbnail_url || file.preview || '';
+            const thumbUrl = (typeof thumbCandidate === 'string' && thumbCandidate) ? thumbCandidate : (file.url || '');
             const isImage = isImageFile(fileName);
 
-            if (isImage && fileUrl) {
+            if (isImage && thumbUrl) {
               // 图片缩略图
               const img = createImage({
                 width: itemSize,
                 height: itemSize,
-                image: fileUrl,
+                image: thumbUrl,
                 cornerRadius: 4,
                 cursor: 'pointer',
               });
@@ -5617,11 +5624,14 @@ const buildTableConfig = (): any => {
               });
               img.addEventListener('pointertap', (e: any) => {
                 e.stopPropagation?.();
-                // 收集当前单元格内全部图片（按附件顺序），从被点击图片开始预览
-                const imageFiles = files
-                  .filter((f: any) => isImageFile(f.name || '') && (f.url || f.thumbnail || f.preview))
-                  .map((f: any) => ({ url: f.url || f.thumbnail || f.preview, name: f.name || '' }));
-                const idx = imageFiles.findIndex(im => im.url === fileUrl && im.name === fileName);
+                // 收集当前单元格内全部图片（按附件顺序），从被点击图片开始预览；预览使用原图保证清晰度
+                const imageFileObjects = files
+                  .filter((f: any) => isImageFile(f.name || '') && (f.thumbnail || f.thumbnail_url || f.url || f.preview));
+                const imageFiles = imageFileObjects.map((f: any) => ({
+                  url: f.url || f.preview || f.thumbnail || f.thumbnail_url || '',
+                  name: f.name || ''
+                }));
+                const idx = imageFileObjects.indexOf(file);
                 attachmentImagePreviewFiles.value = imageFiles;
                 attachmentImagePreviewIndex.value = idx >= 0 ? idx : 0;
                 attachmentImagePreviewVisible.value = true;

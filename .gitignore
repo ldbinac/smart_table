@@ -85,6 +85,7 @@ dmypy.json
 # IDE
 .vscode/
 .idea/
+.openidea/
 *.swp
 *.swo
 *~
