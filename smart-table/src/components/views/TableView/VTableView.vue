@@ -70,6 +70,7 @@ import FieldDialog from "@/components/dialogs/FieldDialog.vue";
 import RecordDetailDrawer from "@/components/dialogs/RecordDetailDrawer.vue";
 // 导入附件管理浮动面板
 import AttachmentManager from "@/components/fields/AttachmentManager.vue";
+import { isFieldEditLocked } from "@/utils/fieldEditLock";
 // 导入关联记录选择器
 import LinkRecordSelector from "@/components/fields/LinkField/LinkRecordSelector.vue";
 // 主从表功能
@@ -6722,6 +6723,12 @@ const bindTableEvents = () => {
           const cellRecord = (tableInstance as any)?.getCellOriginRecord?.(colIndex, rowIndex);
           if (!cellRecord) return;
 
+          // 「只能编辑一次」：记录该字段已有值时，禁止打开附件管理修改
+          if (isFieldEditLocked(field, cellRecord._originalRecord?.values)) {
+            ElMessage.warning(t('field.editableOnceLocked'));
+            return;
+          }
+
           // 附件浮窗始终居中显示于浏览器视口，避免字段在表格右侧被滚动隐藏后弹窗跑到视口外
           const panelWidth = 380;
           const panelHeight = 480;
@@ -6857,6 +6864,15 @@ const bindTableEvents = () => {
 
     // 字段值类型转换：VTable 内置编辑对日期/日期时间字段返回时间戳，需转为字符串格式
     const targetField = orderedVisibleFields.value[col - 1] ?? null;
+
+    // 「只能编辑一次」：记录该字段已有值时，禁止再修改（前端拦截 + 后端强制校验）
+    if (targetField && isFieldEditLocked(targetField, originalRecord?.values)) {
+      ElMessage.warning(t('field.editableOnceLocked'));
+      if (tableStore.currentTable?.id) {
+        await tableStore.refreshRecords(tableStore.currentTable.id);
+      }
+      return;
+    }
     let finalValue = newValue;
     if (targetField?.type && typeof finalValue === 'number') {
       if (targetField.type === FieldType.DATE) {

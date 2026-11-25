@@ -131,6 +131,8 @@ const newField = ref<{
   regexMessage?: string;
   // 单元格合并配置
   mergeCell: boolean;
+  // 只能编辑一次配置
+  editableOnce: boolean;
   // 日期字段显示/录入格式配置（仅 DATE 类型生效，DATE_TIME 仍按 ISO 存储）
   dateFormat: string;
   // 地理位置字段配置
@@ -174,6 +176,7 @@ const newField = ref<{
   regex: undefined,
   regexMessage: undefined,
   mergeCell: false,
+  editableOnce: false,
   dateFormat: "YYYY-MM-DD",
   geoFormat: "province_city_district",
 });
@@ -546,6 +549,7 @@ function openCreateField() {
     regex: undefined,
     regexMessage: undefined,
     mergeCell: false,
+    editableOnce: false,
     dateFormat: "YYYY-MM-DD",
     geoFormat: "province_city_district",
   };
@@ -630,6 +634,7 @@ function openEditField(field: FieldEntity) {
     regex: (field.options?.regex as string) ?? undefined,
     regexMessage: (field.options?.regexMessage as string) ?? undefined,
     mergeCell: Boolean(field.options?.mergeCell),
+    editableOnce: Boolean(field.options?.editableOnce),
     dateFormat: (field.options?.dateFormat as string) ?? "YYYY-MM-DD",
     geoFormat: ((field.options?.geoFormat as GeoFormat) ?? "province_city_district"),
   };
@@ -774,6 +779,7 @@ function backToList() {
     regex: undefined,
     regexMessage: undefined,
     mergeCell: false,
+    editableOnce: false,
     dateFormat: "YYYY-MM-DD",
     geoFormat: "province_city_district",
   };
@@ -966,6 +972,11 @@ async function createField() {
     // 单元格合并配置
     if (newField.value.mergeCell) {
       options.mergeCell = true;
+    }
+
+    // 只能编辑一次配置
+    if (newField.value.editableOnce) {
+      options.editableOnce = true;
     }
 
     let field;
@@ -1177,6 +1188,13 @@ async function updateField() {
       options.mergeCell = true;
     } else {
       delete options.mergeCell;
+    }
+
+    // 只能编辑一次配置
+    if (newField.value.editableOnce) {
+      options.editableOnce = true;
+    } else {
+      delete options.editableOnce;
     }
 
     // 构建更新数据
@@ -2396,6 +2414,18 @@ async function toggleFieldVisibility(
         <ElFormItem v-if="!isSystemValueField" :label="t('field.mergeCell')">
           <ElSwitch v-model="newField.mergeCell" />
           <div class="field-hint">&nbsp;{{ t('field.mergeCellHint') }}</div>
+        </ElFormItem>
+
+        <ElFormItem
+          v-if="
+            !isSystemValueField &&
+            newField.type !== FieldType.AUTO_NUMBER &&
+            newField.type !== FieldType.FORMULA &&
+            newField.type !== FieldType.LOOKUP
+          "
+          :label="t('field.editableOnce')">
+          <ElSwitch v-model="newField.editableOnce" />
+          <div class="field-hint">&nbsp;{{ t('field.editableOnceHint') }}</div>
         </ElFormItem>
 
         <ElFormItem :label="t('field.fieldDesc')">

@@ -3905,6 +3905,10 @@ MESSAGES = {
         'zh-CN': '字段类型 {0} 的默认值必须是地理信息对象',
         'en-US': 'Default value for field type {0} must be a geo object',
     },
+    'field_editable_once_locked': {
+        'zh-CN': '该字段只能编辑一次，已填写后不可修改',
+        'en-US': 'This field can only be edited once and cannot be changed after it has a value',
+    },
     'invalid_link_type': {
         'zh-CN': '无效的关联类型: {0}',
         'en-US': 'Invalid link type: {0}',
