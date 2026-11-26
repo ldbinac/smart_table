@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, nextTick } from "vue";
 import { useI18n } from "vue-i18n";
+import { ElMessage } from "element-plus";
 import type { FieldEntity, RecordEntity } from "../../db/schema";
 import type { GroupNode } from "../../utils/group";
 import { FieldType, getFieldTypeIconComponent } from "@/types/fields";
@@ -167,21 +168,25 @@ const contextMenuItems = computed(() => {
       );
 
       if (selectedRows.value.size > 1) {
-        items.push({
-          id: "delete-selected",
-          label: t("view.deleteSelectedRecords", {
-            count: selectedRows.value.size,
-          }),
-          icon: "delete",
-          danger: true,
-        });
+        if (canManage.value) {
+          items.push({
+            id: "delete-selected",
+            label: t("view.deleteSelectedRecords", {
+              count: selectedRows.value.size,
+            }),
+            icon: "delete",
+            danger: true,
+          });
+        }
       } else {
-        items.push({
-          id: "delete",
-          label: t("view.deleteRecord"),
-          icon: "delete",
-          danger: true,
-        });
+        if (canManage.value) {
+          items.push({
+            id: "delete",
+            label: t("view.deleteRecord"),
+            icon: "delete",
+            danger: true,
+          });
+        }
       }
     }
   } else if (contextMenuTarget.value === "header") {
@@ -257,6 +262,10 @@ async function handleContextMenuSelect(item: any) {
       break;
 
     case "delete":
+      if (!canManage.value) {
+        ElMessage.warning(t("view.onlyManagerCanDelete"));
+        break;
+      }
       if (contextMenuRecord.value) {
         // 触发删除事件给父组件处理
         emit("delete-records", [contextMenuRecord.value]);
@@ -264,6 +273,10 @@ async function handleContextMenuSelect(item: any) {
       break;
 
     case "delete-selected":
+      if (!canManage.value) {
+        ElMessage.warning(t("view.onlyManagerCanDelete"));
+        break;
+      }
       emit(
         "delete-records",
         Array.from(selectedRows.value)

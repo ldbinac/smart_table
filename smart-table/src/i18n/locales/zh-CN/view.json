@@ -196,6 +196,7 @@
   "recordDuplicated": "复制记录成功",
   "duplicateFailed": "复制记录失败",
   "deleteFailed": "删除记录失败",
+  "onlyManagerCanDelete": "只有管理员才能删除记录",
   "recordsDeleted": "成功删除 {count} 条记录",
   "selectedCells": "已选 {count} 个单元格",
   "alreadyTopLevel": "该记录已经是顶层记录，无法提升层级",

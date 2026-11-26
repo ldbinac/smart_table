@@ -28,6 +28,25 @@ import logging
 log = logging.getLogger(__name__)
 
 
+class EditableOnceViolation(Exception):
+    """字段「只能编辑一次」违规：记录该字段已有值时尝试修改。"""
+
+    def __init__(self, field_names=None):
+        self.field_names = field_names or []
+        super().__init__('field_editable_once_locked')
+
+
+def _has_field_value(value: Any) -> bool:
+    """判断字段值是否算作“已填写”（与前端 hasFieldValue 保持一致）。"""
+    if value is None:
+        return False
+    if isinstance(value, str):
+        return value.strip() != ''
+    if isinstance(value, (list, dict, tuple, set)):
+        return len(value) > 0
+    return True
+
+
 def _escape_like_pattern(pattern: str) -> str:
     """
     转义 SQL LIKE 查询中的通配符，防止通配符注入
@@ -445,6 +464,38 @@ class RecordService:
         return Record.query.get(record_id)
     
     @staticmethod
+    def validate_editable_once(record: Record, values: Dict[str, Any]) -> None:
+        """
+        校验「只能编辑一次」字段：记录该字段已有值时不允许修改。
+
+        Args:
+            record: 记录对象
+            values: 待更新字段值
+
+        Raises:
+            EditableOnceViolation: 存在被锁定的字段被修改时抛出
+        """
+        if not values:
+            return
+        fields = FieldService.get_all_fields(str(record.table_id))
+        field_map = {str(f.id): f for f in fields}
+        old_values = record.values or {}
+        locked_field_names = []
+        for field_id, new_value in values.items():
+            field = field_map.get(str(field_id))
+            if not field:
+                continue
+            options = field.options if isinstance(field.options, dict) else {}
+            if (
+                options.get('editableOnce')
+                and _has_field_value(old_values.get(field_id))
+                and old_values.get(field_id) != new_value
+            ):
+                locked_field_names.append(field.name)
+        if locked_field_names:
+            raise EditableOnceViolation(locked_field_names)
+
+    @staticmethod
     def update_record(record: Record, values: Dict[str, Any] = None,
                      updated_by: str = None,
                      expected_updated_at: str = None,
@@ -478,6 +529,22 @@ class RecordService:
             # 获取表格的所有字段，用于处理日期字段
             fields = FieldService.get_all_fields(str(record.table_id))
             field_map = {str(field.id): field for field in fields}
+
+            # 「只能编辑一次」：记录该字段已有值时禁止修改（后端强制，防绕过前端）
+            locked_field_names = []
+            for _fid, _new_val in values.items():
+                _field = field_map.get(str(_fid))
+                if not _field:
+                    continue
+                _opts = _field.options if isinstance(_field.options, dict) else {}
+                if (
+                    _opts.get('editableOnce')
+                    and _has_field_value(old_values.get(_fid))
+                    and old_values.get(_fid) != _new_val
+                ):
+                    locked_field_names.append(_field.name)
+            if locked_field_names:
+                raise EditableOnceViolation(locked_field_names)
 
             # 过滤掉自动编号字段的修改（自动编号字段不可编辑）
             auto_number_field_ids = {

@@ -24,20 +24,8 @@ if sys.stderr and hasattr(sys.stderr, 'reconfigure'):
 # ===== 密钥安全检查工具 =====
 # 所有可能泄露到公开仓库的弱默认密钥值（用于告警）
 _KNOWN_WEAK_SECRET_KEYS = {
-    'change-this-secret-key-in-production',
-    'dev-secret-key-not-for-production',
-    'your-secret-key-here',
-    'your-secret-key-change-in-production',
-    'test-secret-key-for-migration-verification',
-    'your-super-secret-key-change-this-in-production-immediately',
 }
 _KNOWN_WEAK_JWT_KEYS = {
-    'change-this-jwt-secret-in-production',
-    'dev-jwt-secret-not-for-production',
-    'your-jwt-secret-key-here',
-    'your-jwt-secret-key-change-in-production',
-    'test-jwt-secret-key-for-migration-verification',
-    'your-super-jwt-secret-key-change-this-in-production-immediately',
 }
 
 

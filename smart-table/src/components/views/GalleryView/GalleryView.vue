@@ -5,6 +5,7 @@ import type { RecordEntity, FieldEntity } from "@/db/schema";
 import { FieldType } from "@/types";
 import { FormulaEngine } from "@/utils/formula/engine";
 import { useCollaborationStore } from "@/stores/collaborationStore";
+import { useMemberStore } from "@/stores/memberStore";
 import { realtimeEventEmitter } from "@/services/realtime/eventEmitter";
 import type {
   DataRecordUpdatedBroadcast,
@@ -37,6 +38,9 @@ const previewIndex = ref(0);
 const imageLoadingMap = ref<Map<string, boolean>>(new Map());
 
 const collabStore = useCollaborationStore();
+const memberStore = useMemberStore();
+// 只有管理者（Base 管理员/拥有者）才能删除记录
+const canManage = computed(() => memberStore.canManage);
 const realtimeHandlers: Array<{ event: string; handler: (...args: unknown[]) => void }> = [];
 
 function setupRealtimeListenersForView() {
@@ -340,6 +344,7 @@ onBeforeUnmount(() => {
                   <el-icon><Edit /></el-icon>
                 </el-button>
                 <el-button
+                  v-if="canManage"
                   circle
                   class="action-btn delete-btn"
                   @click="handleDelete(card)">

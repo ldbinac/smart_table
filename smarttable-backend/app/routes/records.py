@@ -10,7 +10,7 @@ from flask import Blueprint, request, g, current_app
 from sqlalchemy import insert
 
 from app.i18n import translate
-from app.services.record_service import RecordService, _format_date_value
+from app.services.record_service import RecordService, _format_date_value, EditableOnceViolation
 from app.services.table_service import TableService
 from app.services.formula_service import FormulaService
 from app.services.link_service import LinkService
@@ -602,7 +602,15 @@ def update_record(record_id) -> tuple:
         )
 
         return success_response(result, 'record_updated_successfully')
-    
+
+    except EditableOnceViolation as e:
+        return error_response(
+            'field_editable_once_locked',
+            400,
+            error='editable_once_locked',
+            details=[{'field': name} for name in e.field_names],
+        )
+
     except Exception as e:
         request_id = getattr(g, 'request_id', None)
         current_app.logger.error(f'[{request_id}] 更新记录失败: {str(e)}')
@@ -676,6 +684,12 @@ def batch_update_records() -> tuple:
                 table_ids_checked.add(str(table.id))
     
     try:
+        # 「只能编辑一次」：先整体校验，避免部分记录更新后才失败
+        for record_id in record_ids:
+            _rec = RecordService.get_record_by_id(record_id)
+            if _rec:
+                RecordService.validate_editable_once(_rec, values)
+
         updated_count = 0
         failed_ids = []
         
@@ -695,7 +709,15 @@ def batch_update_records() -> tuple:
             'updated_count': updated_count,
             'failed_ids': failed_ids
         }, translate('records_updated_success', updated_count))
-    
+
+    except EditableOnceViolation as e:
+        return error_response(
+            'field_editable_once_locked',
+            400,
+            error='editable_once_locked',
+            details=[{'field': name} for name in e.field_names],
+        )
+
     except Exception as e:
         request_id = getattr(g, 'request_id', None)
         current_app.logger.error(f'[{request_id}] 批量更新记录失败: {str(e)}')
@@ -734,12 +756,10 @@ def delete_record(record_id) -> tuple:
     if not record:
         return error_response('record_does_not_exist', 404)
     
-    # 资源级权限检查
+    # 资源级权限检查：只有管理者（Base 管理员/拥有者或平台管理员）可删除记录
     table = TableService.get_table_by_id(record.table_id)
-    if table and not PermissionService.check_permission(
-        str(table.base_id), g.current_user_id, MemberRole.EDITOR
-    ) and TableShareService.get_members_role(str(record.table_id), g.current_user_id) != 'editor':
-        return error_response('no_permission_delete_record', 403)
+    if table and not PermissionService.can_manage_records(str(table.base_id), g.current_user_id):
+        return error_response('only_manager_can_delete_record', 403, error='only_manager_can_delete_record')
     
     try:
         success = RecordService.delete_record(
@@ -809,10 +829,8 @@ def batch_delete_records() -> tuple:
         if record:
             table = TableService.get_table_by_id(record.table_id)
             if table and str(table.id) not in table_ids_checked:
-                if not PermissionService.check_permission(
-                    str(table.base_id), g.current_user_id, MemberRole.EDITOR
-                ) and TableShareService.get_members_role(str(table.id), g.current_user_id) != 'editor':
-                    return error_response(translate('no_permission_delete_records_in_table', table.base_id), 403)
+                if not PermissionService.can_manage_records(str(table.base_id), g.current_user_id):
+                    return error_response('only_manager_can_delete_record', 403, error='only_manager_can_delete_record')
                 table_ids_checked.add(str(table.id))
     
     try:

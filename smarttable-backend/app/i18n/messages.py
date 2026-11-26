@@ -1991,6 +1991,10 @@ MESSAGES = {
         'zh-CN': '无权删除该记录',
         'en-US': 'No permission to delete this record',
     },
+    'only_manager_can_delete_record': {
+        'zh-CN': '只有管理员才能删除记录',
+        'en-US': 'Only administrators can delete records',
+    },
     'no_permission_create_records_table': {
         'zh-CN': '无权在该表格中创建记录',
         'en-US': 'No permission to create records in this table',
@@ -3904,6 +3908,10 @@ MESSAGES = {
     'field_default_value_must_be_object': {
         'zh-CN': '字段类型 {0} 的默认值必须是地理信息对象',
         'en-US': 'Default value for field type {0} must be a geo object',
+    },
+    'field_editable_once_locked': {
+        'zh-CN': '该字段只能编辑一次，已填写后不可修改',
+        'en-US': 'This field can only be edited once and cannot be changed after it has a value',
     },
     'invalid_link_type': {
         'zh-CN': '无效的关联类型: {0}',

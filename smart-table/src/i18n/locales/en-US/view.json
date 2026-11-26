@@ -196,6 +196,7 @@
   "recordDuplicated": "Record duplicated successfully",
   "duplicateFailed": "Failed to duplicate record",
   "deleteFailed": "Failed to delete record",
+  "onlyManagerCanDelete": "Only administrators can delete records",
   "recordsDeleted": "Successfully deleted {count} records",
   "selectedCells": "Selected {count} cells",
   "alreadyTopLevel": "This record is already at the top level and cannot be promoted",

@@ -40,6 +40,7 @@ import {
   validateFieldFormat,
 } from "@/utils/validation";
 import type { CellValue } from "@/types";
+import { isFieldEditLocked } from "@/utils/fieldEditLock";
 import AttachmentField from "@/components/fields/AttachmentField.vue";
 import SignatureField from "@/components/fields/SignatureField.vue";
 import DateInput from "@/components/fields/DateInput.vue";
@@ -121,6 +122,11 @@ async function initRichEditors() {
         ],
       },
     });
+
+    // 「只能编辑一次」：记录该字段已有值时，富文本编辑器设为只读
+    if (isFieldLocked(field) && typeof (editor as any).enable === "function") {
+      (editor as any).enable(false);
+    }
 
     // 设置初始内容：先清除浏览器 native selection，避免 setContents 触发 MutationObserver 时
     // 因 native selection 指向旧 DOM 节点导致 normalizedToRange 崩溃
@@ -675,6 +681,14 @@ function isReadonlyField(field: FieldEntity): boolean {
   );
 }
 
+// 检查字段是否因「只能编辑一次」而锁定（记录该字段已有值时只读）
+function isFieldLocked(field: FieldEntity): boolean {
+  return isFieldEditLocked(
+    field,
+    (props.record as RecordEntity | null)?.values as Record<string, unknown> | undefined,
+  );
+}
+
 // 检查字段是否已自动填充（分组字段）
 function isAutoFilledField(field: FieldEntity): boolean {
   // 优先使用 groupLevels（多层分组）
@@ -941,7 +955,7 @@ const effectiveSize = computed<string | number>(() => {
               :model-value="String(formData[field.id] || '')"
               @update:model-value="(val) => handleValueChange(field.id, val)"
               :placeholder="t('record.inputPlaceholder', { name: field.name })"
-              :disabled="readonly"
+              :disabled="readonly || isFieldLocked(field)"
               :maxlength="(field.options?.maxLength as number) || undefined"
               :class="['field-input', { 'is-error': fieldErrors[field.id] }]"
               @blur="validateTextFieldRegex(field)" />
@@ -957,7 +971,7 @@ const effectiveSize = computed<string | number>(() => {
                 :model-value="String(formData[field.id] || '')"
                 @update:model-value="(val) => handleValueChange(field.id, val)"
                 :placeholder="t('record.inputPlaceholder', { name: field.name })"
-                :disabled="readonly"
+                :disabled="readonly || isFieldLocked(field)"
                 :maxlength="(field.options?.maxLength as number) || undefined"
                 type="textarea"
                 :rows="3"
@@ -996,7 +1010,7 @@ const effectiveSize = computed<string | number>(() => {
               :formatter="createNumberInputFormatter(field.options)"
               :parser="createNumberInputParser(field.options)"
               :placeholder="t('record.inputPlaceholder', { name: field.name })"
-              :disabled="readonly"
+              :disabled="readonly || isFieldLocked(field)"
               class="field-input"
               style="width: 100%">
                 <template #prefix v-if="getNumberFieldPrefix(field.options)">{{ getNumberFieldPrefix(field.options) }}</template>
@@ -1010,7 +1024,7 @@ const effectiveSize = computed<string | number>(() => {
               :model-value="formData[field.id] as string"
               @update:model-value="(val) => handleValueChange(field.id, val)"
               :placeholder="t('record.selectPlaceholder', { name: field.name })"
-              :disabled="readonly"
+              :disabled="readonly || isFieldLocked(field)"
               class="field-input"
               style="width: 100%">
               <el-option
@@ -1034,7 +1048,7 @@ const effectiveSize = computed<string | number>(() => {
               :model-value="(formData[field.id] as string[]) || []"
               @update:model-value="(val) => handleValueChange(field.id, val)"
               :placeholder="t('record.selectPlaceholder', { name: field.name })"
-              :disabled="readonly"
+              :disabled="readonly || isFieldLocked(field)"
               multiple
               class="field-input"
               style="width: 100%">
@@ -1065,7 +1079,7 @@ const effectiveSize = computed<string | number>(() => {
               :field="field"
               :model-value="(formData[field.id] as CellValue)"
               :placeholder="t('record.selectPlaceholder', { name: field.name })"
-              :disabled="readonly"
+              :disabled="readonly || isFieldLocked(field)"
               class="field-input"
               @update:model-value="(val) => handleValueChange(field.id, val)" />
           </template>
@@ -1074,7 +1088,7 @@ const effectiveSize = computed<string | number>(() => {
           <template v-else-if="getFieldComponent(field) === 'checkbox'">
             <el-switch
               :model-value="Boolean(formData[field.id])"
-              :disabled="readonly"
+              :disabled="readonly || isFieldLocked(field)"
               @update:model-value="(val) => handleValueChange(field.id, val)" />
           </template>
 
@@ -1084,7 +1098,7 @@ const effectiveSize = computed<string | number>(() => {
               <el-slider
                 :model-value="Number(formData[field.id] || 0)"
                 :max="100"
-                :disabled="readonly"
+                :disabled="readonly || isFieldLocked(field)"
                 :format-tooltip="(val: number) => `${val}%`"
                 @update:model-value="
                   (val) => handleValueChange(field.id, val)
@@ -1098,7 +1112,7 @@ const effectiveSize = computed<string | number>(() => {
             <el-rate
               :model-value="Number(formData[field.id] || 0)"
               :max="getMaxRating(field)"
-              :disabled="readonly"
+              :disabled="readonly || isFieldLocked(field)"
               @update:model-value="(val) => handleValueChange(field.id, val)" />
           </template>
 
@@ -1129,7 +1143,7 @@ const effectiveSize = computed<string | number>(() => {
               :model-value="formData[field.id] as CellValue"
               :field="field"
               :record-id="record.id"
-              :readonly="readonly"
+              :readonly="readonly || isFieldLocked(field)"
               @update:model-value="(val) => handleValueChange(field.id, val)"
               @upload="(files) => handleAttachmentUpload(field.id, files)"
               @delete="(fileId) => handleAttachmentDelete(field.id, fileId)" />
@@ -1141,7 +1155,7 @@ const effectiveSize = computed<string | number>(() => {
               :model-value="formData[field.id] as string | null"
               :field="field"
               :record-id="record?.id"
-              :readonly="readonly"
+              :readonly="readonly || isFieldLocked(field)"
               @update:model-value="(val) => handleValueChange(field.id, val)" />
           </template>
 
@@ -1151,7 +1165,7 @@ const effectiveSize = computed<string | number>(() => {
               :model-value="(formData[field.id] as string | null)"
               :placeholder="t('record.selectPlaceholder', { name: field.name })"
               :allow-multiple="false"
-              :disabled="readonly"
+              :disabled="readonly || isFieldLocked(field)"
               class="field-input"
               @update:model-value="(val) => handleValueChange(field.id, val)" />
           </template>
@@ -1165,7 +1179,7 @@ const effectiveSize = computed<string | number>(() => {
               :display-field-id="getLinkFieldConfig(field)?.displayFieldId"
               :relationship-type="getLinkFieldConfig(field)?.relationshipType"
               :is-editing="editingLinkField === field.id"
-              :readonly="readonly"
+              :readonly="readonly || isFieldLocked(field)"
               :record-id="record?.id || ''"
               :field-id="field.id"
               :is-self-link="getLinkFieldConfig(field)?.targetTableId === field.tableId"
@@ -1186,7 +1200,7 @@ const effectiveSize = computed<string | number>(() => {
               :record-id="record.id"
               :field-id="field.id"
               :target-table-id="getLinkFieldConfig(field)!.targetTableId"
-              :readonly="readonly"
+              :readonly="readonly || isFieldLocked(field)"
               @expand-record="handleSubTableExpandRecord" />
           </template>
 
@@ -1211,7 +1225,7 @@ const effectiveSize = computed<string | number>(() => {
             <GeoField
               :model-value="(formData[field.id] as any)"
               :field="field"
-              :readonly="readonly"
+              :readonly="readonly || isFieldLocked(field)"
               @update:model-value="(val) => handleValueChange(field.id, val)" />
           </template>
 
@@ -1221,7 +1235,7 @@ const effectiveSize = computed<string | number>(() => {
               :model-value="String(formData[field.id] || '')"
               @update:model-value="(val) => handleValueChange(field.id, val)"
               :placeholder="t('record.inputPlaceholder', { name: field.name })"
-              :disabled="readonly"
+              :disabled="readonly || isFieldLocked(field)"
               :maxlength="(field.options?.maxLength as number) || undefined"
               class="field-input" />
           </template>

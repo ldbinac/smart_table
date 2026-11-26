@@ -70,6 +70,7 @@ import FieldDialog from "@/components/dialogs/FieldDialog.vue";
 import RecordDetailDrawer from "@/components/dialogs/RecordDetailDrawer.vue";
 // 导入附件管理浮动面板
 import AttachmentManager from "@/components/fields/AttachmentManager.vue";
+import { isFieldEditLocked } from "@/utils/fieldEditLock";
 // 导入关联记录选择器
 import LinkRecordSelector from "@/components/fields/LinkField/LinkRecordSelector.vue";
 // 主从表功能
@@ -2854,27 +2855,29 @@ const contextMenuItems = computed(() => {
       items.push({ id: "duplicate", label: t("view.duplicateCurrentRecord"), icon: "copy", hint: t("view.duplicateCurrentRecordHint"), action: () => handleDuplicateRecord() });
       items.push({ divider: true, id: "divider1", label: "" });
 
-      // 始终显示"删除当前记录"
-      items.push({
-        id: "delete",
-        label: t("view.deleteCurrentRecord"),
-        icon: "delete",
-        danger: true,
-        hint: t("view.deleteCurrentRecordHint"),
-        action: () => handleDeleteRecord(),
-      });
-
-      // 只要有选中的记录（行选择或复选框选择），就显示"删除选中的x条记录"
-      const selectedCount = selectedRecordIds.value.length;
-      if (selectedCount >= 1) {
+      // 只有管理者（Base 管理员/拥有者）才能删除记录
+      if (canManage.value) {
         items.push({
-          id: "delete-selected",
-          label: t("view.deleteSelectedRecords", { count: selectedCount }),
+          id: "delete",
+          label: t("view.deleteCurrentRecord"),
           icon: "delete",
           danger: true,
-          hint: t("view.deleteSelectedRecordsHint", { count: selectedCount }),
-          action: () => handleDeleteSelectedRecords(),
+          hint: t("view.deleteCurrentRecordHint"),
+          action: () => handleDeleteRecord(),
         });
+
+        // 只要有选中的记录（行选择或复选框选择），就显示"删除选中的x条记录"
+        const selectedCount = selectedRecordIds.value.length;
+        if (selectedCount >= 1) {
+          items.push({
+            id: "delete-selected",
+            label: t("view.deleteSelectedRecords", { count: selectedCount }),
+            icon: "delete",
+            danger: true,
+            hint: t("view.deleteSelectedRecordsHint", { count: selectedCount }),
+            action: () => handleDeleteSelectedRecords(),
+          });
+        }
       }
     }
   } else if (contextMenuTarget.value === "header" && contextMenuColumn.value) {
@@ -3254,6 +3257,11 @@ const handleDuplicateRecord = async () => {
 // 处理删除记录
 const handleDeleteRecord = async () => {
   if (!contextMenuRecord.value) return;
+  if (!canManage.value) {
+    ElMessage.warning(t("view.onlyManagerCanDelete"));
+    contextMenuVisible.value = false;
+    return;
+  }
   try {
     await ElMessageBox.confirm(
       t("view.deleteRecordConfirm"),
@@ -3287,6 +3295,11 @@ const handleDeleteSelectedRecords = async () => {
   const ids = [...selectedRecordIds.value];
   const count = ids.length;
   if (count === 0) return;
+  if (!canManage.value) {
+    ElMessage.warning(t("view.onlyManagerCanDelete"));
+    contextMenuVisible.value = false;
+    return;
+  }
   try {
     await ElMessageBox.confirm(
       t("view.deleteSelectedConfirm", { count }),
@@ -4645,19 +4658,24 @@ const enhanceSubTableColumns = (columns: any[], targetFields: any[]): any[] => {
 
             displayFiles.forEach((file: any) => {
               const fileName = file.name || '';
-              const fileUrl = file.url || file.thumbnail || file.preview || '';
+              // 单元格内优先使用缩略图，避免直接加载原图占用带宽与内存；无缩略图时回退原图
+              const thumbCandidate = file.thumbnail || file.thumbnail_url || file.preview || '';
+              const thumbUrl = (typeof thumbCandidate === 'string' && thumbCandidate) ? thumbCandidate : (file.url || '');
               const isImage = isImageFile(fileName);
 
-              if (isImage && fileUrl) {
-                const img = createImage({ width: itemSize, height: itemSize, image: fileUrl, cornerRadius: 4, cursor: 'pointer' });
+              if (isImage && thumbUrl) {
+                const img = createImage({ width: itemSize, height: itemSize, image: thumbUrl, cornerRadius: 4, cursor: 'pointer' });
                 img.addEventListener('pointerdown', (e: any) => { e.stopPropagation?.(); });
                 img.addEventListener('pointertap', (e: any) => {
                   e.stopPropagation?.();
-                  // 收集当前单元格内全部图片（按附件顺序），从被点击图片开始预览
-                  const imageFiles = files
-                    .filter((f: any) => isImageFile(f.name || '') && (f.url || f.thumbnail || f.preview))
-                    .map((f: any) => ({ url: f.url || f.thumbnail || f.preview, name: f.name || '' }));
-                  const idx = imageFiles.findIndex(im => im.url === fileUrl && im.name === fileName);
+                  // 收集当前单元格内全部图片（按附件顺序），从被点击图片开始预览；预览使用原图保证清晰度
+                  const imageFileObjects = files
+                    .filter((f: any) => isImageFile(f.name || '') && (f.thumbnail || f.thumbnail_url || f.url || f.preview));
+                  const imageFiles = imageFileObjects.map((f: any) => ({
+                    url: f.url || f.preview || f.thumbnail || f.thumbnail_url || '',
+                    name: f.name || ''
+                  }));
+                  const idx = imageFileObjects.indexOf(file);
                   attachmentImagePreviewFiles.value = imageFiles;
                   attachmentImagePreviewIndex.value = idx >= 0 ? idx : 0;
                   attachmentImagePreviewVisible.value = true;
@@ -5599,15 +5617,17 @@ const buildTableConfig = (): any => {
 
           displayFiles.forEach((file: any) => {
             const fileName = file.name || '';
-            const fileUrl = file.url || file.thumbnail || file.preview || '';
+            // 单元格内优先使用缩略图，避免直接加载原图占用带宽与内存；无缩略图时回退原图
+            const thumbCandidate = file.thumbnail || file.thumbnail_url || file.preview || '';
+            const thumbUrl = (typeof thumbCandidate === 'string' && thumbCandidate) ? thumbCandidate : (file.url || '');
             const isImage = isImageFile(fileName);
 
-            if (isImage && fileUrl) {
+            if (isImage && thumbUrl) {
               // 图片缩略图
               const img = createImage({
                 width: itemSize,
                 height: itemSize,
-                image: fileUrl,
+                image: thumbUrl,
                 cornerRadius: 4,
                 cursor: 'pointer',
               });
@@ -5617,11 +5637,14 @@ const buildTableConfig = (): any => {
               });
               img.addEventListener('pointertap', (e: any) => {
                 e.stopPropagation?.();
-                // 收集当前单元格内全部图片（按附件顺序），从被点击图片开始预览
-                const imageFiles = files
-                  .filter((f: any) => isImageFile(f.name || '') && (f.url || f.thumbnail || f.preview))
-                  .map((f: any) => ({ url: f.url || f.thumbnail || f.preview, name: f.name || '' }));
-                const idx = imageFiles.findIndex(im => im.url === fileUrl && im.name === fileName);
+                // 收集当前单元格内全部图片（按附件顺序），从被点击图片开始预览；预览使用原图保证清晰度
+                const imageFileObjects = files
+                  .filter((f: any) => isImageFile(f.name || '') && (f.thumbnail || f.thumbnail_url || f.url || f.preview));
+                const imageFiles = imageFileObjects.map((f: any) => ({
+                  url: f.url || f.preview || f.thumbnail || f.thumbnail_url || '',
+                  name: f.name || ''
+                }));
+                const idx = imageFileObjects.indexOf(file);
                 attachmentImagePreviewFiles.value = imageFiles;
                 attachmentImagePreviewIndex.value = idx >= 0 ? idx : 0;
                 attachmentImagePreviewVisible.value = true;
@@ -6712,6 +6735,12 @@ const bindTableEvents = () => {
           const cellRecord = (tableInstance as any)?.getCellOriginRecord?.(colIndex, rowIndex);
           if (!cellRecord) return;
 
+          // 「只能编辑一次」：记录该字段已有值时，禁止打开附件管理修改
+          if (isFieldEditLocked(field, cellRecord._originalRecord?.values)) {
+            ElMessage.warning(t('field.editableOnceLocked'));
+            return;
+          }
+
           // 附件浮窗始终居中显示于浏览器视口，避免字段在表格右侧被滚动隐藏后弹窗跑到视口外
           const panelWidth = 380;
           const panelHeight = 480;
@@ -6847,6 +6876,15 @@ const bindTableEvents = () => {
 
     // 字段值类型转换：VTable 内置编辑对日期/日期时间字段返回时间戳，需转为字符串格式
     const targetField = orderedVisibleFields.value[col - 1] ?? null;
+
+    // 「只能编辑一次」：记录该字段已有值时，禁止再修改（前端拦截 + 后端强制校验）
+    if (targetField && isFieldEditLocked(targetField, originalRecord?.values)) {
+      ElMessage.warning(t('field.editableOnceLocked'));
+      if (tableStore.currentTable?.id) {
+        await tableStore.refreshRecords(tableStore.currentTable.id);
+      }
+      return;
+    }
     let finalValue = newValue;
     if (targetField?.type && typeof finalValue === 'number') {
       if (targetField.type === FieldType.DATE) {
