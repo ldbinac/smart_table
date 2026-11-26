@@ -45,10 +45,11 @@ echo "[2/4] 检查并升级数据库..."
 cd /app
 
 # 先尝试运行 Alembic 迁移到最新版本
-# (镜像内 Python 源码已编译为字节码, 入口为 run.pyc)
-python run.pyc migrate 2>&1 || {
+# 注意：镜像内 app/ 包经 PyArmor 加密，run/ 保持明文入口
+# 用 python -m run 执行（run/__init__.py 有相对导入，-m 保证父包上下文）
+python -m run migrate 2>&1 || {
     echo "  ! 数据库迁移出现警告，尝试回退到 init-db..."
-    python run.pyc init-db 2>&1 || {
+    python -m run init-db 2>&1 || {
         echo "  ! 数据库初始化出现警告（首次运行正常）"
     }
 }
@@ -56,7 +57,7 @@ python run.pyc migrate 2>&1 || {
 echo "  + 数据库迁移/初始化完成"
 
 # 确保默认管理员账号存在（如果没有管理员则自动创建）
-python run.pyc ensure-admin 2>&1 || {
+python -m run ensure-admin 2>&1 || {
     echo "  ! 管理员检查出现警告"
 }
 

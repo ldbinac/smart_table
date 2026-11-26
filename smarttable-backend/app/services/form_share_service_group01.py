@@ -1,0 +1,355 @@
+"""
+表单分享服务模块
+处理表单分享的创建、管理和数据提交
+"""
+import re
+import uuid
+from datetime import datetime, timezone
+from typing import Dict, Any, Optional, List, Tuple
+
+from flask import current_app
+
+from app.extensions import db, cache
+from app.models.form_share import FormShare
+from app.models.form_submission import FormSubmission
+from app.models.table import Table
+from app.models.field import Field, FieldType
+from app.models.base import Base, MemberRole
+from app.services.record_service import RecordService
+from app.services.table_service import TableService
+from app.services.field_service import FieldService
+from app.services.link_service import LinkService
+from app.services.permission_service import PermissionService
+from app.utils.captcha import CaptchaService
+from app.i18n import translate
+
+
+class FormShareError(Exception):
+    """表单分享错误"""
+    pass
+
+class FormShareServiceGroup01Mixin:
+    """Mixin auto-split"""
+    
+    """表单分享服务类"""
+    
+    SUBMIT_RATE_LIMIT = 100  # 每个分享链接每 15 分钟最多的提交次数（用于防刷，而非限制正常多用户填写）
+    
+    RATE_LIMIT_WINDOW = 900  # 15 分钟（秒）
+    
+    
+    @staticmethod
+    def _normalize_columns(value) -> int:
+        """将每行字段数列数限制在 1-4 之间（一行最多显示 4 个字段）"""
+        try:
+            c = int(value)
+        except (TypeError, ValueError):
+            return 1
+        return max(1, min(4, c))
+    
+    @staticmethod
+    def create_form_share(
+        table_id: str,
+        user_id: str,
+        config: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """
+        创建表单分享
+    
+        Args:
+            table_id: 表格 ID
+            user_id: 创建者用户 ID
+            config: 配置参数
+                - allow_anonymous: 是否允许匿名提交
+                - require_captcha: 是否需要验证码
+                - expires_at: 过期时间（Unix 时间戳）
+                - max_submissions: 最大提交次数
+                - allowed_fields: 允许提交的字段列表
+                - title: 表单标题
+                - description: 表单描述
+                - submit_button_text: 提交按钮文字
+                - success_message: 成功提示信息
+                - theme: 主题样式
+    
+        Returns:
+            包含操作结果的字典
+        """
+        try:
+            # 验证表格是否存在
+            table = TableService.get_table_by_id(table_id)
+            if not table:
+                return {'success': False, 'error': 'table_does_not_exist', 'status': 404}
+    
+            # 验证用户权限（需要 EDITOR 或更高权限）
+            if not PermissionService.check_permission(
+                str(table.base_id), user_id, MemberRole.EDITOR
+            ):
+                return {'success': False, 'error': 'no_permission_create_form_share', 'status': 403}
+    
+            # 验证过期时间
+            expires_at = config.get('expires_at')
+            if expires_at is not None:
+                try:
+                    expires_at = int(expires_at)
+                    if expires_at < int(datetime.now(timezone.utc).timestamp()):
+                        return {'success': False, 'error': 'expiry_time_past'}
+                except (ValueError, TypeError):
+                    return {'success': False, 'error': 'expiry_time_valid_unix_timestamp'}
+    
+            # 验证允许字段列表
+            allowed_fields = config.get('allowed_fields', [])
+            if allowed_fields:
+                # 获取表格所有字段
+                table_fields = FieldService.get_all_fields(table_id)
+                table_field_ids = {str(f.id) for f in table_fields}
+    
+                # 检查所有指定字段是否存在于表格中
+                invalid_fields = [f for f in allowed_fields if f not in table_field_ids]
+                if invalid_fields:
+                    return {'success': False, 'error': translate('form_share_invalid_fields', invalid_fields)}
+    
+            # 验证字段级配置（默认值 + 只读）
+            field_settings = config.get('field_settings') or {}
+            if field_settings:
+                table_fields = table_fields if allowed_fields else FieldService.get_all_fields(table_id)
+                table_field_ids = {str(f.id) for f in table_fields}
+                invalid_settings_fields = [
+                    fid for fid in field_settings if str(fid) not in table_field_ids
+                ]
+                if invalid_settings_fields:
+                    return {'success': False, 'error': translate('form_share_invalid_fields', invalid_settings_fields)}
+    
+            # 创建表单分享
+            form_share = FormShare(
+                table_id=str(table_id),
+                created_by=str(user_id),
+                is_active=config.get('is_active', True),
+                allow_anonymous=config.get('allow_anonymous', True),
+                require_captcha=config.get('require_captcha', True),
+                expires_at=expires_at,
+                max_submissions=config.get('max_submissions'),
+                title=config.get('title'),
+                description=config.get('description'),
+                submit_button_text=config.get('submit_button_text', '提交'),
+                success_message=config.get('success_message', '提交成功，感谢您的参与！'),
+                theme=config.get('theme', 'default'),
+                columns=FormShareService._normalize_columns(config.get('columns'))
+            )
+    
+            # 设置允许字段
+            if allowed_fields:
+                form_share.set_allowed_fields_list(allowed_fields)
+    
+            # 设置字段级配置（默认值 + 只读）
+            if field_settings:
+                form_share.set_field_settings(field_settings)
+    
+            db.session.add(form_share)
+            db.session.commit()
+    
+            current_app.logger.info(
+                f'[FormShareService] 创建表单分享: id={form_share.id}, '
+                f'table={table_id}, created_by={user_id}'
+            )
+    
+            return {
+                'success': True,
+                'form_share': form_share,
+                'share_url': f'/form/{form_share.share_token}'
+            }
+    
+        except Exception as e:
+            db.session.rollback()
+            current_app.logger.error(f'[FormShareService] 创建表单分享失败: {str(e)}')
+            return {'success': False, 'error': translate('form_share_create_failed', str(e)), 'status': 500}
+    
+    @staticmethod
+    def get_form_share_by_token(token: str) -> Optional[FormShare]:
+        """通过分享令牌获取表单分享"""
+        return FormShare.query.filter_by(share_token=token).first()
+    
+    @staticmethod
+    def get_form_share_by_id(share_id: str) -> Optional[FormShare]:
+        """通过 ID 获取表单分享"""
+        return FormShare.query.get(share_id)
+    
+    @staticmethod
+    def get_form_shares_by_table(table_id: str) -> List[FormShare]:
+        """获取表格的所有表单分享"""
+        return FormShare.query.filter_by(
+            table_id=str(table_id)
+        ).order_by(FormShare.created_at.desc()).all()
+    
+    @staticmethod
+    def validate_form_share(token: str) -> Tuple[bool, Optional[FormShare], Optional[str]]:
+        """
+        验证表单分享有效性
+    
+        Returns:
+            (是否有效, 表单分享对象, 错误信息)
+        """
+        form_share = FormShareService.get_form_share_by_token(token)
+    
+        if not form_share:
+            return False, None, 'form_share_does_not_exist'
+    
+        if not form_share.is_active:
+            return False, None, 'form_share_been_invalidated'
+    
+        if form_share.is_expired():
+            return False, None, 'form_share_expired'
+    
+        if form_share.is_reached_limit():
+            return False, None, 'submission_limit_reached'
+    
+        return True, form_share, None
+    
+    @staticmethod
+    def verify_share_access_to_table(token: str, table_id: str) -> Tuple[bool, Optional[str]]:
+        """
+        校验表单分享 token 是否允许匿名访问指定表（只读场景）。
+    
+        允许范围：表单所在表，或同一 base 下的其它表（关联字段通常指向同 base 表）。
+        用于匿名分享表单的只读接口（字段列表、可关联记录搜索等）。
+    
+        Returns:
+            (是否有效, 错误信息)
+        """
+        valid, form_share, error = FormShareService.validate_form_share(token)
+        if not valid:
+            return False, error
+    
+        try:
+            form_table = TableService.get_table_by_id(str(form_share.table_id))
+            target_table = TableService.get_table_by_id(str(table_id))
+        except Exception:
+            return False, 'table_does_not_exist'
+    
+        if not form_table or not target_table:
+            return False, 'table_does_not_exist'
+    
+        if (str(target_table.id) == str(form_table.id)
+                or str(target_table.base_id) == str(form_table.base_id)):
+            return True, None
+    
+        return False, 'no_permission_access_table_2'
+    
+    @staticmethod
+    def get_form_schema(token: str) -> Dict[str, Any]:
+        """
+        获取表单结构（字段定义）
+    
+        Returns:
+            包含表单结构的字典
+        """
+        valid, form_share, error = FormShareService.validate_form_share(token)
+    
+        if not valid:
+            return {'success': False, 'error': error, 'status': 403 if error in ('form_share_been_invalidated', 'form_share_expired', 'submission_limit_reached') else 404}
+    
+        try:
+            # 获取表格信息
+            table = TableService.get_table_by_id(form_share.table_id)
+            if not table:
+                return {'success': False, 'error': 'table_does_not_exist', 'status': 404}
+    
+            # 获取字段列表
+            all_fields = FieldService.get_all_fields(form_share.table_id)
+    
+            # 过滤允许提交的字段，并按 allowed_fields 的顺序排列
+            # （保证分享表单的字段展示顺序与配置一致，而非回退到表格字段顺序）
+            allowed_field_ids = form_share.get_allowed_fields_list()
+            field_settings_map = form_share.get_field_settings()
+            field_map = {str(f.id): f for f in all_fields}
+            if allowed_field_ids:
+                fields = [field_map[fid] for fid in allowed_field_ids if fid in field_map]
+            else:
+                fields = all_fields
+    
+            # 构建字段定义
+            fields_schema = []
+            for field in fields:
+                # 合并 config 和 options，确保选项数据正确传递
+                config = field.config or {}
+                options = field.options or {}
+    
+                # 对于单选/多选字段，选项可能存储在 options 中
+                merged_config = {**config}
+                if options:
+                    # 如果 options 中有 choices，合并到 config
+                    if 'choices' in options:
+                        merged_config['choices'] = options['choices']
+                    # 如果 options 中有 options，合并到 config
+                    if 'options' in options:
+                        merged_config['options'] = options['options']
+                    # 合并最大长度配置
+                    if 'maxLength' in options:
+                        merged_config['maxLength'] = options['maxLength']
+    
+                    # 合并字段校验规则配置（单行文本正则、长度、数字范围、自定义规则等）
+                    # 这些校验规则通常存储在 field.options 中，需同步到前端填写页用于前端校验
+                    for rule_key in (
+                        'regex', 'regexMessage', 'minLength', 'maxLength',
+                        'min', 'max', 'validation',
+                        # 公式字段：公式表达式与精度需同步到前端用于计算渲染
+                        'formula', 'precision',
+                        # 数字字段：格式配置需同步到前端，否则分享页无法展示前后缀/千分位
+                        'format', 'currencySymbol', 'prefix', 'suffix',
+                        'thousandsSeparator',
+                        # 日期字段：显示/录入格式需同步到前端，否则分享页无法按设定格式渲染
+                        'dateFormat',
+                        # 地理位置字段：地址子格式（省/省+市/省+市+区/详情/国家地区/经纬度/地图选点）
+                        # 需同步到前端，否则分享页 GeoField 读不到 field.options.geoFormat，
+                        # 永远回退为默认的 province_city_district（省市区），无法按配置格式渲染。
+                        'geoFormat',
+                        # 成员字段：默认值类型需同步到前端，否则分享页无法识别
+                        # 「添加记录用户」默认值并自动预填当前登录用户
+                        'memberDefaultType',
+                    ):
+                        if rule_key in options and rule_key not in merged_config:
+                            merged_config[rule_key] = options[rule_key]
+    
+                # 字段级配置：分享表单中为该字段设置的默认值、只读标记
+                # 默认值优先级：分享表单配置 > 字段自身默认配置
+                field_setting = field_settings_map.get(str(field.id), {}) or {}
+                field_default = config.get('defaultValue')
+                if field_default is None:
+                    field_default = config.get('default')
+                share_default = field_setting.get('defaultValue')
+                effective_default = share_default if share_default is not None else field_default
+                read_only = bool(field_setting.get('readOnly', False))
+    
+                field_schema = {
+                    'id': str(field.id),
+                    'name': field.name,
+                    'type': field.type,
+                    'required': field.is_required if hasattr(field, 'is_required') else False,
+                    'config': merged_config,
+                    'description': field.description if hasattr(field, 'description') else None,
+                    # 经优先级解析后的生效默认值（前端初始化填写页时使用）
+                    'defaultValue': effective_default,
+                    # 是否只读（填写者不可编辑）
+                    'readOnly': read_only,
+                }
+                fields_schema.append(field_schema)
+    
+            return {
+                'success': True,
+                'data': {
+                    'table_id': str(table.id),
+                    'table_name': table.name,
+                    'form_title': form_share.title or table.name,
+                    'form_description': form_share.description,
+                    'submit_button_text': form_share.submit_button_text,
+                    'success_message': form_share.success_message,
+                    'theme': form_share.theme,
+                    'columns': form_share.columns,
+                    'require_captcha': form_share.require_captcha,
+                    'fields': fields_schema
+                }
+            }
+    
+        except Exception as e:
+            current_app.logger.error(f'[FormShareService] 获取表单结构失败: {str(e)}')
+            return {'success': False, 'error': 'failed_fetch_form_structure', 'status': 500}
+    

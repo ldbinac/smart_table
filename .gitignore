@@ -72,7 +72,9 @@ venv.bak/
 .codebuddy/
 .venv-win7/
 
-
+_docker_pyarmor/
+*.log
+*.tar
 
 # mypy
 .mypy_cache/
@@ -108,7 +110,7 @@ tools/redis-windows/
 tools/redis-linux/
 release/
 dist/
-data/
+/data/
 build/
 logs/
 config/.env__default
@@ -119,3 +121,4 @@ node_modules/
 # SQLite WAL mode 辅助文件（WAL + SHM 与 .db 同目录生成）
 *.db-wal
 *.db-shm
+smarttable-backend/data/*

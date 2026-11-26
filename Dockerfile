@@ -17,8 +17,8 @@ FROM ${NODE_IMAGE} AS frontend-builder
 WORKDIR /app/frontend
 
 # 接收版本号（由 build_docker.py 通过 --build-arg 传入，Dockerfile 阶段 1 生成 dist/version.json）
-ARG APP_VERSION=unknown
-ARG BUILD_TIME=unknown
+ARG APP_VERSION=1.6.12.1
+ARG BUILD_TIME=2026-11-23T00:00:00Z
 
 # 启用 corepack 以使用 pnpm
 # 国内网络直连 registry.npmjs.org 不稳定, corepack 与 pnpm 统一走 npmmirror
@@ -44,7 +44,7 @@ ENV HUSKY=0 \
 RUN pnpm exec vite build
 
 # ============================================
-# 阶段 2: 构建后端 Python 依赖
+# 阶段 2: 构建后端 Python 依赖 + 安装 PyArmor
 # ============================================
 FROM ${PYTHON_IMAGE} AS backend-builder
 
@@ -68,8 +68,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # 复制 requirements 文件
 COPY smarttable-backend/requirements.txt ./
 
-# 安装 Python 依赖到用户目录（清华 PyPI 镜像加速，与 apt 换源保持一致）
-RUN pip install --no-cache-dir --user -i https://pypi.tuna.tsinghua.edu.cn/simple -r requirements.txt
+# 安装 Python 依赖 + PyArmor（用于容器内源码加密）
+RUN pip install --no-cache-dir --user -i https://pypi.tuna.tsinghua.edu.cn/simple -r requirements.txt && \
+    pip install --no-cache-dir --user -i https://pypi.tuna.tsinghua.edu.cn/simple pyarmor
 
 # ============================================
 # 阶段 3: 生产运行环境
@@ -158,45 +159,85 @@ COPY docker/redis/redis.conf /etc/redis/redis.conf
 COPY docker/server_runner.py /app/docker/server_runner.py
 COPY docker/entrypoint.sh /entrypoint.sh
 
-# 源码保护与敏感文件清理（须在全部 .py 就位后执行）：
-# 1) 业务源码 app/、入口脚本 docker/server_runner.py、run.py 等编译为字节码后删除 .py。
-#    **注意：migrations/ 目录保留 .py 源文件** —— Alembic 的 ScriptDirectory.get_heads()
-#    只识别 .py 后缀做文件扫描（walk_revisions / get_heads），.pyc 回退仅适用于迁移执行
-#    阶段（load_python_file）。删掉 migrations/*.py 会导致 _needs_upgrade() 永远返回 True，
-#    每次启动都触发一次无意义的完整迁移运行。
-#    仅保留运行时插件 uploads/plugins/*/main.py（产品功能，非后端源码）
-# 2) 兜底删除 .db/.pem 等敏感文件（即使 .dockerignore 规则遗漏也不进入最终镜像）
-RUN python -m compileall -b app/ migrations/ docker/server_runner.py \
-        run.py init_db.py create_tables.py && \
-    find app/ docker/ -type f -name '*.py' -delete && \
-    rm -f run.py init_db.py create_tables.py && \
+# 源码保护策略（容器内 PyArmor 加密）：
+# PyArmor 9.3.0 trial 版在 Docker 容器（Python 3.11 + Debian）
+# 内执行加密。以下 9 个大文件（routes/ 单文件 > 32KB）超出 trial 单文件
+# 大小上限无法加密，但仍按明文保留；其余 300+ 业务逻辑文件全部加密。
+# 对比"完全不加密"，可有效防御通过解压镜像直接读取源码的攻击。
+# 注意：PyArmor 的 --exclude pattern 匹配相对于 package 根的内部路径，
+# 所以写 */admin.py 而不是 */app/routes/admin.py。
+ARG PYARMOR_EXCLUDES="*/tests/* */test_*.py */__pycache__/* */.venv/* */venv/*"
+# 以下 9 个大文件（单文件 > 32KB）PyArmor trial 版无法加密，保持明文
+ARG PYARMOR_BIGFILES_EXCL="*/admin.py */auth.py */approval_flows.py */import_export.py */plugins.py */records.py */views.py */workflows.py *_swagger_spec.py"
+
+RUN echo "=== PyArmor 加密 app/ 包 ===" && \
+    # 先备份被排除的 9 个大文件（>32KB，trial 版无法加密）
+    mkdir -p /tmp/bigfiles && \
+    for f in \
+        app/routes/admin.py \
+        app/routes/auth.py \
+        app/routes/approval_flows.py \
+        app/routes/import_export.py \
+        app/routes/plugins.py \
+        app/routes/records.py \
+        app/routes/views.py \
+        app/routes/workflows.py \
+        app/init_app/_swagger_spec.py \
+    ; do \
+        if [ -f "$f" ]; then \
+            mkdir -p "/tmp/bigfiles/$(dirname "$f")" && \
+            cp "$f" "/tmp/bigfiles/$f"; \
+        fi; \
+    done && \
+    echo "  已备份 9 个大文件到 /tmp/bigfiles" && \
+    PYARMOR_OPTS="gen -O /tmp/pyarmor_out -r --obf-code 1" && \
+    for pat in ${PYARMOR_EXCLUDES} ${PYARMOR_BIGFILES_EXCL}; do \
+        PYARMOR_OPTS="$PYARMOR_OPTS --exclude $pat"; \
+    done && \
+    PYARMOR_OPTS="$PYARMOR_OPTS app/ run.py" && \
+    echo "  加密命令: pyarmor $PYARMOR_OPTS" && \
+    pyarmor $PYARMOR_OPTS 2>&1 && \
+    if [ ! -d /tmp/pyarmor_out/app ]; then \
+        echo "  ❌ 加密产物缺失 /tmp/pyarmor_out/app，构建失败"; \
+        exit 1; \
+    fi && \
+    echo "=== 替换原始源码为加密产物 ===" && \
+    rm -rf app/ && \
+    cp -r /tmp/pyarmor_out/app ./app && \
+    if [ -f /tmp/pyarmor_out/run.py ]; then \
+        cp /tmp/pyarmor_out/run.py ./run.py; \
+    fi && \
+    if [ -d /tmp/pyarmor_out/pyarmor_runtime_000000 ]; then \
+        cp -r /tmp/pyarmor_out/pyarmor_runtime_000000 .; \
+    fi && \
+    rm -rf /tmp/pyarmor_out && \
+    # 把 9 个被排除的大文件复制回原位
+    for f in \
+        app/routes/admin.py \
+        app/routes/auth.py \
+        app/routes/approval_flows.py \
+        app/routes/import_export.py \
+        app/routes/plugins.py \
+        app/routes/records.py \
+        app/routes/views.py \
+        app/routes/workflows.py \
+        app/init_app/_swagger_spec.py \
+    ; do \
+        if [ -f "/tmp/bigfiles/$f" ]; then \
+            mkdir -p "$(dirname "$f")" && \
+            cp "/tmp/bigfiles/$f" "$f"; \
+        fi; \
+    done && \
+    rm -rf /tmp/bigfiles && \
+    echo "  ✅ 加密产物就位（含 9 个明文大文件）" && \
     find app/ migrations/ docker/ -type d -name '__pycache__' -prune -exec rm -rf {} + && \
     find /app -type f \( -name '*.db' -o -name '*.sqlite' -o -name '*.sqlite3' \
         -o -name '*.pem' -o -name '*.key' -o -name '*.p12' -o -name '*.pfx' \) -delete && \
     find /app -type d -empty -name '__pycache__' -delete && \
-    printf '%s\n' \
-      '# run.py 兼容转发 stub (非业务源码): 转发到编译后的 run.pyc，' \
-      '# 保证旧版启动脚本/容器命令覆盖 (python run.py) 依然可用' \
-      'import importlib.util, os, sys' \
-      '_pyc = os.path.join(os.path.dirname(os.path.abspath(__file__)), "run.pyc")' \
-      'if __name__ == "__main__":' \
-      '    # 直接执行 (python run.py): 以 __main__ 名字加载, 复现原 run.py 主流程语义' \
-      '    _spec = importlib.util.spec_from_file_location("__main__", _pyc)' \
-      '    _mod = importlib.util.module_from_spec(_spec)' \
-      '    sys.modules["__main__"] = _mod' \
-      '    _spec.loader.exec_module(_mod)' \
-      'else:' \
-      '    # 被导入 (from run import app): 以 "run" 名字加载模块级定义,' \
-      '    # 绝不能以 __main__ 名字 exec, 否则 server_runner 导入时会误触发' \
-      '    # run.pyc 主流程 (自动迁移 + Werkzeug 启动), 导致 WebSocket 全挂' \
-      '    _spec = importlib.util.spec_from_file_location("run", _pyc)' \
-      '    _mod = importlib.util.module_from_spec(_spec)' \
-      '    sys.modules["run"] = _mod' \
-      '    _spec.loader.exec_module(_mod)' \
-      '    for _name in dir(_mod):' \
-      '        if not _name.startswith("__"):' \
-      '            globals()[_name] = getattr(_mod, _name)' \
-      > /app/run.py
+    echo "=== 镜像验证 ===" && \
+    python -c "import sys; sys.path.insert(0, '/app'); \
+from app import create_app; app = create_app(); \
+print(f'OK: {len(list(app.blueprints))} blueprints')"
 
 # 修复 Windows CRLF 换行符问题，并设置权限
 RUN sed -i 's/\r$//' /entrypoint.sh /etc/nginx/nginx.conf /etc/supervisor/conf.d/supervisord.conf /etc/redis/redis.conf && \

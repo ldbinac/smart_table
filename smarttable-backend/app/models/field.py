@@ -48,6 +48,7 @@ class FieldType(PyEnum):
     URL = 'url'
     BUTTON = 'button'
     GEOLOCATION = 'geolocation'
+    AI = 'ai'  # AI 字段（B1）：配置存 options.ai_config，生成值即普通单元格值
     SIGNATURE = 'signature'
 
 

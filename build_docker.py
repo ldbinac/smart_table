@@ -424,10 +424,12 @@ def sync_package_json():
         log(f'  ⚠️ 同步 package.json 失败: {e}', 'WARNING')
 
 
-def clean_and_recompile_backend_pyc():
+def clean_backend_pyc():
     """
-    清理 smarttable-backend/ 源码中残留的 __pycache__/ 和 *.pyc，
-    然后立即 compileall 重新编译 pyc 预热（跳过 .venv / node_modules）。
+    清理 smarttable-backend/ 源码中残留的 __pycache__/ 和 *.pyc。
+
+    Dockerfile 会在容器内运行 PyArmor 加密，不需要本地 compileall 预热。
+    清理残留 pyc 确保 Docker build context 干净（避免把本地编译的 pyc 混进镜像）。
     """
     log('清理后端 __pycache__/ 和 *.pyc ...', 'STEP')
     backend = BACKEND_DIR
@@ -455,21 +457,6 @@ def clean_and_recompile_backend_pyc():
         log(f'  已清理 {cleaned} 个 __pycache__/ .pyc 残留', 'SUCCESS')
     else:
         log('  无残留，跳过清理', 'INFO')
-
-    log('重新编译后端 .pyc 预热（python -m compileall）...', 'INFO')
-    try:
-        result = run_command(
-            [sys.executable, '-m', 'compileall', '-q',
-             'app/', 'migrations/',
-             'run.py', 'init_db.py', 'create_tables.py',
-             'docker/server_runner.py'],
-            cwd=backend, capture=True, check=False
-        )
-        compiled = len([l for l in (result.stdout or '').splitlines()
-                       if l.strip().endswith('.py')])
-        log(f'  已重新编译 {compiled} 个 .pyc 模块', 'SUCCESS')
-    except Exception as e:
-        log(f'  ⚠ 重编译失败（不影响构建）: {e}', 'WARNING')
 
 
 # ============================================
@@ -1293,8 +1280,8 @@ def main():
     sync_package_json()
     build_frontend(skip_frontend=args.skip_frontend)
 
-    # 清理后端残留 pyc 并重新编译预热（Docker build context 会从干净源码开始）
-    clean_and_recompile_backend_pyc()
+    # 清理后端残留 pyc（Dockerfile 在容器内运行 PyArmor 加密，保持 build context 干净）
+    clean_backend_pyc()
 
     # 步骤 3: 构建 Docker 镜像
     log('', 'INFO')

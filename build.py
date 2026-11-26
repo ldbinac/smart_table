@@ -96,6 +96,13 @@ RELEASE_DIR = PROJECT_ROOT / "release"
 SPEC_FILE = PROJECT_ROOT / "smarttable.spec"
 VERSION_INFO_FILE = BACKEND_DIR / "version_info.txt"
 
+# ===== PyArmor 加密产物目录 =====
+# 加密 app/ 包后输出到此处，PyInstaller 从该目录收集加密代码
+# 源码目录 smarttable-backend/ 保持不变，不会被加密产物覆盖
+PYARMOR_DIR = BACKEND_DIR / "dist" / "pyarmor"
+# PyArmor 可执行文件路径（encrypt.ps1 中定义的 trial 版本路径）
+PYARMOR_EXE = r"C:\Users\Administrator\AppData\Local\Python\pythoncore-3.12-64\Scripts\pyarmor.exe"
+
 # ===== 版本信息配置（从 version.json 动态生成）=====
 VERSION_INFO = {
     'file_version': FILE_VERSION_TUPLE,
@@ -151,6 +158,10 @@ def run_command(cmd, cwd=None, capture=False, check=True, env=None):
         'cwd': cwd or PROJECT_ROOT,
         'shell': isinstance(cmd, str) or (is_windows and isinstance(cmd, list)),
         'text': True,
+        # 关键：Windows 默认 GBK 编码，PyArmor / Python 控制台输出是 UTF-8，
+        # 不指定 encoding 会导致 UnicodeDecodeError（0x93 / 0xaf 等字节在 GBK 下非法）
+        'encoding': 'utf-8',
+        'errors': 'replace',
     }
     if env is not None:
         kwargs['env'] = env
@@ -475,6 +486,177 @@ def clean_and_recompile_backend_pyc():
         log(f'  ⚠ 重编译失败（不影响构建）: {e}', 'WARNING')
 
 
+def encrypt_backend():
+    """
+    使用 PyArmor 加密 smarttable-backend/app/ 包，输出到 PYARMOR_DIR。
+    
+    加密范围：仅 app/ 包（trial 版只能加密 1 个顶层 resource）。
+    run.py、migrations/、.env.example 等保持明文（Alembic 迁移需要 .py 源文件）。
+    
+    产物结构：
+        PYARMOR_DIR/
+        ├── app/                  ← 加密后的 .py
+        ├── pyarmor_runtime_000000/  ← PyArmor runtime（.pyd on Windows, .so on Linux）
+        ├── run.py                ← 明文入口
+        └── .env.example
+    """
+    log('='*60, 'STEP'); log('PyArmor 加密后端代码', 'STEP'); log('='*60, 'STEP')
+    t = time.time()
+
+    # 检查 PyArmor 是否可用
+    pyarmor_exe = Path(PYARMOR_EXE)
+    if not pyarmor_exe.exists():
+        # 尝试从 PATH 查找
+        result = run_command(['where', 'pyarmor'], capture=True, check=False)
+        if result.returncode == 0:
+            pyarmor_exe = Path(result.stdout.strip().splitlines()[0])
+            log(f'  从 PATH 找到 PyArmor: {pyarmor_exe}', 'INFO')
+        else:
+            log(f'❌ PyArmor 未找到！期望: {PYARMOR_EXE}', 'ERROR')
+            log('   请先安装 PyArmor: pip install pyarmor', 'ERROR')
+            sys.exit(1)
+
+    # 清理旧产物
+    if PYARMOR_DIR.exists():
+        shutil.rmtree(PYARMOR_DIR)
+        log(f'  清理旧加密产物: {PYARMOR_DIR}', 'INFO')
+    PYARMOR_DIR.parent.mkdir(parents=True, exist_ok=True)
+
+    # 运行 PyArmor gen
+    # 注意：PyArmor trial 版 有 "big script" 限制（单文件 >32KB 会报错），
+    # 所以 routes/*.py（API 路由定义，非核心业务逻辑）和一些 >32KB 的文件
+    # 需要 --exclude 不加密。排除后这些文件在加密产物里不存在，
+    # 后续用源码的版本补回去（因为它们不加密也无安全风险）。
+    BIG_FILE_EXCLUDES = [
+        '*/app/routes/admin.py',          # 34KB
+        '*/app/routes/auth.py',           # 35KB
+        '*/app/routes/approval_flows.py', # 45KB
+        '*/app/routes/import_export.py',  # 37KB
+        '*/app/routes/plugins.py',        # 40KB
+        '*/app/routes/records.py',        # 76KB
+        '*/app/routes/views.py',          # 33KB
+        '*/app/routes/workflows.py',      # 52KB
+        '*/app/init_app/_swagger_spec.py', # 34KB
+    ]
+    pyarmor_cmd = [
+        str(pyarmor_exe), 'gen',
+        '-O', str(PYARMOR_DIR),
+        '-r',
+        '--obf-code', '1',
+        '--exclude', '*/tests/*',
+        '--exclude', '*/test_*.py',
+        '--exclude', '*/.env*',
+        '--exclude', '*/Dockerfile*',
+        '--exclude', '*.bak_before_split',
+        '--exclude', '*/__pycache__/*',
+    ]
+    for pat in BIG_FILE_EXCLUDES:
+        pyarmor_cmd += ['--exclude', pat]
+    pyarmor_cmd += [str(BACKEND_DIR / 'app')]
+    
+    log(f'  运行 PyArmor gen (exclude {len(BIG_FILE_EXCLUDES)} 个大文件)...', 'INFO')
+    result = run_command(pyarmor_cmd, capture=True, check=False)
+
+    # PyArmor 可能通过 stderr 输出 INFO，需检查 stdout + stderr
+    output = (result.stdout or '') + '\n' + (result.stderr or '')
+    if result.returncode != 0:
+        log(f'❌ PyArmor 加密失败 (exit={result.returncode})', 'ERROR')
+        # 输出最后 20 行帮助排查
+        lines = output.strip().splitlines()
+        for line in lines[-20:]:
+            log(f'  | {line}', 'ERROR')
+        sys.exit(1)
+
+    # 验证产物存在
+    encrypted_app = PYARMOR_DIR / 'app' / '__init__.py'
+    runtime_dir = None
+    for d in PYARMOR_DIR.iterdir():
+        if d.is_dir() and d.name.startswith('pyarmor_runtime'):
+            runtime_dir = d
+            break
+
+    if not encrypted_app.exists():
+        log(f'❌ 加密产物不完整：{encrypted_app} 缺失', 'ERROR')
+        sys.exit(1)
+    if not runtime_dir:
+        log(f'❌ 加密产物不完整：pyarmor_runtime_000000/ 缺失', 'ERROR')
+        sys.exit(1)
+
+    # 复制入口文件（保持明文，不加密）
+    # run.py 是原始单文件入口（43KB > PyArmor trial 版 32KB 限制，但 run.py 不加密所以无关）
+    # 加密产物目录里放一份明文 run.py，spec pathex 会优先从加密目录收集 app 包，
+    # 但 run.py 不在加密范围，PyInstaller 从 BACKEND_DIR 的源码收集它
+    for f in ['run.py', 'create_tables.py']:
+        src = BACKEND_DIR / f
+        if src.exists():
+            shutil.copy2(src, PYARMOR_DIR / f)
+    log(f'  复制明文入口文件: run.py, create_tables.py', 'INFO')
+
+    # 复制被 PyArmor --exclude 排除的大文件（超 32KB 的 routes/*.py 等）
+    # 它们在加密产物里不存在，直接从源码复制明文版本
+    copied_big = 0
+    for pattern in BIG_FILE_EXCLUDES:
+        # pattern 格式如 '*/app/routes/admin.py'，转为相对路径 smarttable-backend/app/routes/admin.py
+        rel_path = pattern.replace('*/', '')  # 去掉通配符前缀
+        src_file = BACKEND_DIR / rel_path
+        dst_file = PYARMOR_DIR / rel_path
+        if src_file.exists() and not dst_file.exists():
+            dst_file.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(src_file, dst_file)
+            copied_big += 1
+    if copied_big:
+        log(f'  复制被排除的大 .py 文件（明文）: {copied_big} 个', 'INFO')
+
+    # 复制 app/ 下加密产物缺失的非 Python 资源（PyArmor 只加密 .py，
+    # 不会复制 .js/.html/.css/.json 等；plugins_sandbox/、script_runner/ 等运行时依赖）
+    # 策略：遍历源码 app/ 所有文件，非 .py 且加密产物里不存在的才补过去
+    #       —— 已加密的 .py 绝对不动，避免覆盖回源码明文
+    src_app = BACKEND_DIR / 'app'
+    dst_app = PYARMOR_DIR / 'app'
+    copied_files = 0
+    for src_file in src_app.rglob('*'):
+        if not src_file.is_file():
+            continue
+        if src_file.suffix == '.py':
+            continue  # .py 已被 PyArmor 加密输出，跳过
+        # 跳过 __pycache__ 里的 pyc
+        if '__pycache__' in src_file.parts:
+            continue
+        rel = src_file.relative_to(src_app)
+        dst_file = dst_app / rel
+        if not dst_file.exists():
+            dst_file.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(src_file, dst_file)
+            copied_files += 1
+    if copied_files > 0:
+        log(f'  复制加密产物缺失的非 .py 资源文件: {copied_files} 个', 'INFO')
+
+    # 验证加密产物可 import（关键验证步骤）
+    log('  验证加密产物 import 测试...', 'INFO')
+    test_script = (
+        f'import sys; '
+        f'sys.path.insert(0, r"{PYARMOR_DIR}"); '
+        f'from app import create_app; '
+        f'app = create_app(); '
+        f'print(f"OK: {{len(list(app.blueprints))}} blueprints")'
+    )
+    verify = run_command(
+        [sys.executable, '-c', test_script],
+        capture=True, check=False, cwd=str(PYARMOR_DIR)
+    )
+    if verify.returncode != 0 or 'OK' not in (verify.stdout or ''):
+        log(f'❌ 加密产物 import 验证失败', 'ERROR')
+        log(f'   stdout: {verify.stdout}', 'ERROR')
+        log(f'   stderr: {verify.stderr}', 'ERROR')
+        sys.exit(1)
+    log(f'  ✓ 加密产物验证通过: {verify.stdout.strip()}', 'SUCCESS')
+
+    size = sum(f.stat().st_size for f in PYARMOR_DIR.rglob('*') if f.is_file()) / (1024*1024)
+    log(f'✅ PyArmor 加密完成 ({time.time()-t:.1f}s, {size:.1f} MB)', 'SUCCESS')
+    log(f'   产物目录: {PYARMOR_DIR}', 'SUCCESS')
+    log(f'   Runtime : {runtime_dir.name}/', 'SUCCESS')
+
+
 def build_frontend():
     log('='*60, 'STEP'); log('第 1 步：构建前端 (Vue + Vite)', 'STEP'); log('='*60, 'STEP')
     t = time.time()
@@ -519,7 +701,7 @@ def build_backend(platform):
     log(f'✅ 后端完成 ({time.time()-t:.1f}s, {size:.1f} MB) -> {out}', 'SUCCESS')
 
 
-def prepare_release_package(platform):
+def prepare_release_package(platform, skip_migrations=False):
     log('='*60, 'STEP'); log(f'第 3 步：准备 {PLATFORMS[platform]["display_name"]} 发布包', 'STEP'); log('='*60, 'STEP')
     info = PLATFORMS[platform]
     release_subdir = RELEASE_DIR / info['display_name']
@@ -579,16 +761,19 @@ def prepare_release_package(platform):
     # README
     _create_readme(release_subdir, platform)
 
-    # 数据库迁移脚本（启动时自动升级需要）
-    migrations_src = BACKEND_DIR / 'migrations'
-    if migrations_src.exists():
-        migrations_dst = release_subdir / 'migrations'
-        if migrations_dst.exists():
-            shutil.rmtree(migrations_dst)
-        shutil.copytree(migrations_src, migrations_dst)
-        log(f'  Migrations: {migrations_src.relative_to(PROJECT_ROOT)}')
+    # 数据库迁移脚本（启动时自动升级需要；--skip-migrations 可跳过）
+    if not skip_migrations:
+        migrations_src = BACKEND_DIR / 'migrations'
+        if migrations_src.exists():
+            migrations_dst = release_subdir / 'migrations'
+            if migrations_dst.exists():
+                shutil.rmtree(migrations_dst)
+            shutil.copytree(migrations_src, migrations_dst)
+            log(f'  Migrations: {migrations_src.relative_to(PROJECT_ROOT)}')
+        else:
+            log(f'  ⚠️ 未找到数据库迁移目录', 'WARNING')
     else:
-        log(f'  ⚠️ 未找到数据库迁移目录', 'WARNING')
+        log(f'  ⏭ 跳过 Migrations（--skip-migrations）', 'INFO')
 
     # 目录
     for d in ['data', 'uploads', 'logs']:
@@ -706,8 +891,14 @@ def _create_readme(d, platform):
 def main():
     parser = argparse.ArgumentParser(description=f'SmartTable v{VERSION} 构建工具')
     parser.add_argument('platform', choices=['windows', 'linux', 'all'])
-    parser.add_argument('--skip-frontend', action='store_true')
-    parser.add_argument('--clean-only', action='store_true')
+    parser.add_argument('--skip-frontend', action='store_true',
+                        help='跳过前端构建，使用已有 smart-table/dist')
+    parser.add_argument('--skip-encrypt', action='store_true',
+                        help='跳过 PyArmor 加密（调试用；PyInstaller 从源码直接构建）')
+    parser.add_argument('--clean-only', action='store_true',
+                        help='仅清理产物后退出')
+    parser.add_argument('--skip-migrations', action='store_true',
+                        help='跳过 migrations 目录打包（release/ 中不含数据库迁移脚本）')
     args = parser.parse_args()
 
     print(f'\n{"="*70}\n  SmartTable v{VERSION} 跨平台打包工具\n  {datetime.now()}\n{"="*70}\n')
@@ -748,8 +939,14 @@ def main():
     # 清理后端残留 pyc 并重新编译预热（在 PyInstaller 打包前做，避免旧缓存混入）
     clean_and_recompile_backend_pyc()
 
+    # PyArmor 加密（默认开启；--skip-encrypt 可跳过）
+    if not args.skip_encrypt:
+        encrypt_backend()
+    else:
+        log('⚠️ 跳过 PyArmor 加密（--skip-encrypt），将从源码直接构建', 'WARNING')
+
     for p in platforms:
-        print(); build_backend(p); prepare_release_package(p)
+        print(); build_backend(p); prepare_release_package(p, skip_migrations=args.skip_migrations)
 
     print(f'\n{"="*70}\n  ✅ 所有任务完成！\n{"="*70}')
     print(f'\n发布包: {RELEASE_DIR}')
