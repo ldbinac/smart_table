@@ -2855,27 +2855,29 @@ const contextMenuItems = computed(() => {
       items.push({ id: "duplicate", label: t("view.duplicateCurrentRecord"), icon: "copy", hint: t("view.duplicateCurrentRecordHint"), action: () => handleDuplicateRecord() });
       items.push({ divider: true, id: "divider1", label: "" });
 
-      // 始终显示"删除当前记录"
-      items.push({
-        id: "delete",
-        label: t("view.deleteCurrentRecord"),
-        icon: "delete",
-        danger: true,
-        hint: t("view.deleteCurrentRecordHint"),
-        action: () => handleDeleteRecord(),
-      });
-
-      // 只要有选中的记录（行选择或复选框选择），就显示"删除选中的x条记录"
-      const selectedCount = selectedRecordIds.value.length;
-      if (selectedCount >= 1) {
+      // 只有管理者（Base 管理员/拥有者）才能删除记录
+      if (canManage.value) {
         items.push({
-          id: "delete-selected",
-          label: t("view.deleteSelectedRecords", { count: selectedCount }),
+          id: "delete",
+          label: t("view.deleteCurrentRecord"),
           icon: "delete",
           danger: true,
-          hint: t("view.deleteSelectedRecordsHint", { count: selectedCount }),
-          action: () => handleDeleteSelectedRecords(),
+          hint: t("view.deleteCurrentRecordHint"),
+          action: () => handleDeleteRecord(),
         });
+
+        // 只要有选中的记录（行选择或复选框选择），就显示"删除选中的x条记录"
+        const selectedCount = selectedRecordIds.value.length;
+        if (selectedCount >= 1) {
+          items.push({
+            id: "delete-selected",
+            label: t("view.deleteSelectedRecords", { count: selectedCount }),
+            icon: "delete",
+            danger: true,
+            hint: t("view.deleteSelectedRecordsHint", { count: selectedCount }),
+            action: () => handleDeleteSelectedRecords(),
+          });
+        }
       }
     }
   } else if (contextMenuTarget.value === "header" && contextMenuColumn.value) {
@@ -3255,6 +3257,11 @@ const handleDuplicateRecord = async () => {
 // 处理删除记录
 const handleDeleteRecord = async () => {
   if (!contextMenuRecord.value) return;
+  if (!canManage.value) {
+    ElMessage.warning(t("view.onlyManagerCanDelete"));
+    contextMenuVisible.value = false;
+    return;
+  }
   try {
     await ElMessageBox.confirm(
       t("view.deleteRecordConfirm"),
@@ -3288,6 +3295,11 @@ const handleDeleteSelectedRecords = async () => {
   const ids = [...selectedRecordIds.value];
   const count = ids.length;
   if (count === 0) return;
+  if (!canManage.value) {
+    ElMessage.warning(t("view.onlyManagerCanDelete"));
+    contextMenuVisible.value = false;
+    return;
+  }
   try {
     await ElMessageBox.confirm(
       t("view.deleteSelectedConfirm", { count }),

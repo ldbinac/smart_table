@@ -7,6 +7,7 @@ import { FieldType } from "@/types";
 import { FormulaEngine } from "@/utils/formula/engine";
 import { formatDate, formatDateTime } from "@/utils/timezone";
 import { useTableStore } from "@/stores/tableStore";
+import { useMemberStore } from "@/stores/memberStore";
 
 const { t } = useI18n();
 
@@ -25,6 +26,9 @@ const emit = defineEmits<{
 
 // 获取表格所有字段（包括隐藏字段，用于公式计算）
 const tableStore = useTableStore();
+const memberStore = useMemberStore();
+// 只有管理者（Base 管理员/拥有者）才能删除记录
+const canManage = computed(() => memberStore.canManage);
 const allFields = computed(() => tableStore.fields);
 
 const primaryField = computed(() => {
@@ -137,7 +141,7 @@ function handleCardClick(event: MouseEvent) {
                 <el-icon><Edit /></el-icon>
                 {{ t("view.edit") }}
               </el-dropdown-item>
-              <el-dropdown-item divided @click="$emit('delete')">
+              <el-dropdown-item v-if="canManage" divided @click="$emit('delete')">
                 <el-icon><Delete /></el-icon>
                 {{ t("view.delete") }}
               </el-dropdown-item>

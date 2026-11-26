@@ -1417,6 +1417,10 @@ const handleEditFieldFromGroup = (fieldId: string) => {
 // 处理分组视图的删除记录
 const handleDeleteRecordsFromGroup = async (records: RecordEntity[]) => {
   if (records.length === 0) return;
+  if (!memberStore.canManage) {
+    ElMessage.warning(t('view.onlyManagerCanDelete'));
+    return;
+  }
 
   try {
     await ElMessageBox.confirm(
@@ -1500,6 +1504,10 @@ const handleSaveRecord = async (
 const handleDeleteRecord = async (recordId: string) => {
   if (!tableStore.currentTable) {
     ElMessage.warning(t('view.base.selectTableFirst'));
+    return;
+  }
+  if (!memberStore.canManage) {
+    ElMessage.warning(t('view.onlyManagerCanDelete'));
     return;
   }
 

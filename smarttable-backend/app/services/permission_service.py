@@ -242,3 +242,34 @@ class PermissionService:
             return True, ''
         
         return False, 'do_not_permission_manage_members'
+
+    @classmethod
+    def can_manage_records(cls, base_id: str, user_id: Optional[str]) -> bool:
+        """
+        是否可以管理（删除）记录。
+
+        规则：Base 的 owner/admin 成员，或平台系统管理员（owner/admin）可删除记录；
+        普通 editor、共享链接用户均不可删除。
+
+        Args:
+            base_id: Base ID
+            user_id: 当前用户 ID
+
+        Returns:
+            是否有删除记录的权限
+        """
+        if not user_id:
+            return False
+
+        role = cls.get_user_role(base_id, user_id)
+        if role in (MemberRole.OWNER, MemberRole.ADMIN):
+            return True
+
+        # 平台级系统管理员（未加入该 Base 时）也允许管理记录
+        from app.models.user import User, UserRole
+
+        user = User.query.get(user_id)
+        if user and user.role in (UserRole.OWNER, UserRole.ADMIN):
+            return True
+
+        return False

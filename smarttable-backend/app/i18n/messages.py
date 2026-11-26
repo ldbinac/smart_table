@@ -1991,6 +1991,10 @@ MESSAGES = {
         'zh-CN': '无权删除该记录',
         'en-US': 'No permission to delete this record',
     },
+    'only_manager_can_delete_record': {
+        'zh-CN': '只有管理员才能删除记录',
+        'en-US': 'Only administrators can delete records',
+    },
     'no_permission_create_records_table': {
         'zh-CN': '无权在该表格中创建记录',
         'en-US': 'No permission to create records in this table',

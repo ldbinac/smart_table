@@ -183,19 +183,23 @@ const contextMenuItems = computed(() => {
       );
 
       if (selectedRows.value.length > 1) {
-        items.push({
-          id: "delete-selected",
-          label: t("view.deleteSelectedRecords", { count: selectedRows.value.length }),
-          icon: "delete",
-          danger: true,
-        });
+        if (canManage.value) {
+          items.push({
+            id: "delete-selected",
+            label: t("view.deleteSelectedRecords", { count: selectedRows.value.length }),
+            icon: "delete",
+            danger: true,
+          });
+        }
       } else {
-        items.push({
-          id: "delete",
-          label: t("view.deleteRecord"),
-          icon: "delete",
-          danger: true,
-        });
+        if (canManage.value) {
+          items.push({
+            id: "delete",
+            label: t("view.deleteRecord"),
+            icon: "delete",
+            danger: true,
+          });
+        }
       }
     }
   } else if (contextMenuTarget.value === "header") {
@@ -436,6 +440,10 @@ const handleContextMenuSelect = async (item: any) => {
 
     case "delete":
       if (contextMenuRecord.value) {
+        if (!canManage.value) {
+          ElMessage.warning(t("view.onlyManagerCanDelete"));
+          break;
+        }
         try {
           await ElMessageBox.confirm(
             t("view.deleteRecordConfirm"),
@@ -461,6 +469,10 @@ const handleContextMenuSelect = async (item: any) => {
       break;
 
     case "delete-selected":
+      if (!canManage.value) {
+        ElMessage.warning(t("view.onlyManagerCanDelete"));
+        break;
+      }
       try {
         await ElMessageBox.confirm(
           t("view.deleteSelectedConfirm", { count: selectedRows.value.length }),
@@ -637,6 +649,10 @@ const handleKeyDown = async (event: KeyboardEvent) => {
       if (isEditable) break;
 
       if (selectedRows.value.length > 0 && !props.readonly) {
+        if (!canManage.value) {
+          ElMessage.warning(t("view.onlyManagerCanDelete"));
+          break;
+        }
         event.preventDefault();
         try {
           await ElMessageBox.confirm(
